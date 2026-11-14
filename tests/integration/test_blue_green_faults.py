@@ -11,6 +11,7 @@ from contextlib import contextmanager
 from pathlib import Path
 
 import pytest
+from sqlalchemy import text
 from sqlalchemy.orm import Session
 
 from backend.db.models import (
@@ -210,6 +211,7 @@ class TestRecovery:
         first_active = _active_id(test_db)
 
         # simulate a process that died mid-build: building version + running task
+        # whose heartbeat went stale (>5 minutes ago)
         session = Session(bind=test_db.engine)
         orphan = pg_store.create_building_version(
             session, name="v_orphan", embedding_model="fake-embed",
@@ -217,13 +219,41 @@ class TestRecovery:
         )
         session.commit()
         task_session = Session(bind=test_db.engine)
-        pg_store.start_task(task_session, "full_rebuild", version_id=orphan.id)
+        pg_store.start_task(task_session, "test_full_rebuild", version_id=orphan.id)
+        task_session.commit()
+        task_session.execute(
+            text("UPDATE index_tasks SET updated_at = now() - interval '10 minutes' WHERE status = 'running'")
+        )
         task_session.commit()
 
         pipeline.ensure_bootstrapped()
 
         session.refresh(orphan)
         assert orphan.status == VERSION_STATUS_FAILED
+        assert _active_id(test_db) == first_active
+        session.close()
+        task_session.close()
+
+    def test_recovery_spares_live_build(self, pipeline, test_db):
+        """A concurrently-running build with a FRESH heartbeat must survive
+        another request's bootstrap recovery (the V2 stress finding)."""
+        pipeline.full_build(reason="v1")
+        first_active = _active_id(test_db)
+
+        session = Session(bind=test_db.engine)
+        building = pg_store.create_building_version(
+            session, name="v_live", embedding_model="fake-embed",
+            chunk_settings={}, metadata_schema_version="5",
+        )
+        session.commit()
+        task_session = Session(bind=test_db.engine)
+        pg_store.start_task(task_session, "test_full_rebuild", version_id=building.id)
+        task_session.commit()  # fresh heartbeat, as a live build would have
+
+        pipeline.ensure_bootstrapped()
+
+        session.refresh(building)
+        assert building.status == "building", "live build must not be reaped"
         assert _active_id(test_db) == first_active
         session.close()
         task_session.close()
@@ -240,14 +270,18 @@ class TestRecovery:
                 .values(status=VERSION_STATUS_ACTIVE, is_active=True)
             )
         stale_session = Session(bind=test_db.engine)
-        # a running task attached to the now-active version
+        # a running task attached to the now-active version, heartbeat gone stale
         task = pg_store.start_task(stale_session, "test_full_rebuild", version_id=result["version_id"])
         stale_session.commit()
-
-        pg_store.recover_stale_tasks(stale_session, [])
+        stale_session.execute(
+            text("UPDATE index_tasks SET updated_at = now() - interval '10 minutes' WHERE status = 'running'")
+        )
         stale_session.commit()
 
-        assert _active_id(test_db) == result["version_id"], "active version survives recovery"
+        pg_store.recover_stale_tasks(stale_session, stale_seconds=300)
+        stale_session.commit()
+
+        assert _active_id(test_db) == result["version_id"], "active version survives recovery even when its task is reaped"
         task_session = Session(bind=test_db.engine)
         reloaded = pg_store_start_task_guard(task_session, task.id)
         assert reloaded == "failed"

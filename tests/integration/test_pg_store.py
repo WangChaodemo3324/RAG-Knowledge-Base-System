@@ -10,6 +10,7 @@ from __future__ import annotations
 import uuid
 
 import pytest
+from sqlalchemy import text
 from sqlalchemy.orm import Session
 
 from backend.db.models import VERSION_STATUS_ACTIVE
@@ -196,9 +197,21 @@ class TestTasksAndRecovery:
         assert task2.status == "failed"
 
     def test_recover_stale_tasks(self, db_session, version):
-        pg_store.start_task(db_session, "test_full_rebuild", version_id=version.id)
-        recovered = pg_store.recover_stale_tasks(db_session, [])
+        task = pg_store.start_task(db_session, "test_full_rebuild", version_id=version.id)
+        # fresh heartbeat must NOT be reaped (live-build safety)
+        assert pg_store.recover_stale_tasks(db_session, stale_seconds=300) == 0
+        db_session.refresh(task)
+        assert task.status == "running"
+
+        # backdate the heartbeat → now recovery reaps it
+        db_session.execute(
+            text("UPDATE index_tasks SET updated_at = now() - interval '10 minutes' WHERE id = :tid"),
+            {"tid": task.id},
+        )
+        recovered = pg_store.recover_stale_tasks(db_session, stale_seconds=300)
         assert recovered == 1
+        db_session.refresh(task)
+        assert task.status == "failed"
         db_session.refresh(version)
         assert version.status == "failed"
 

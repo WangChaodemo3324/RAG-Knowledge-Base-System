@@ -231,6 +231,13 @@ class RagService:
         return info
 
 
+_RAG_SERVICE_LOCK = threading.Lock()
+
+
 @lru_cache(maxsize=1)
 def get_rag_service() -> RagService:
-    return RagService()
+    # lru_cache does NOT serialize concurrent first calls: 20 parallel requests
+    # would each construct a RagService (embedding load + DB bootstrap) and blow
+    # the connection pool. Double-checked lock guarantees a single init.
+    with _RAG_SERVICE_LOCK:
+        return RagService()

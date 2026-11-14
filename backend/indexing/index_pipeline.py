@@ -69,11 +69,8 @@ class IndexPipeline:
     def ensure_bootstrapped(self) -> dict[str, Any] | None:
         """Startup safety: recover stale tasks; build v1 if no active version exists."""
         with self._session() as session:
-            building = session.execute(
-                sql_text("SELECT id FROM index_versions WHERE status = 'building'")
-            ).all()
-            stale_ids = [row[0] for row in building]
-            pg_store.recover_stale_tasks(session, stale_ids)
+            # heartbeat-based recovery: live builds (fresh heartbeat) survive
+            pg_store.recover_stale_tasks(session, stale_seconds=300)
             active = pg_store.get_active_version(session)
         if active is not None:
             return None
@@ -124,7 +121,7 @@ class IndexPipeline:
         try:
             for file_path in self.processor.supported_files():
                 try:
-                    indexed.append(self._index_file_into_version(version_id, file_path, mode="full_rebuild"))
+                    indexed.append(self._index_file_into_version(version_id, file_path, mode="full_rebuild", task_id=task_id))
                 except Exception as exc:  # noqa: BLE001
                     failed.append({"filename": file_path.name, "error": str(exc)})
 
@@ -165,10 +162,19 @@ class IndexPipeline:
             "indexed": indexed,
         }
 
-    def _index_file_into_version(self, version_id: int, file_path: Path, mode: str) -> dict[str, Any]:
-        """Prepare + embed outside any DB transaction; write inside one transaction."""
+    def _index_file_into_version(self, version_id: int, file_path: Path, mode: str, task_id: int | None = None) -> dict[str, Any]:
+        """Prepare + embed outside any DB transaction; write inside one transaction.
+
+        Heartbeat before and after the (potentially slow) embed so concurrent
+        startup recovery never reaps a live build.
+        """
+        if task_id is not None:
+            with self._session() as session:
+                pg_store.touch_task(session, task_id)
         prepared = self._prepare_file(file_path)
         with self._session() as session:
+            if task_id is not None:
+                pg_store.touch_task(session, task_id)
             record = pg_store.upsert_document(
                 session,
                 version_id=version_id,

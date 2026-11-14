@@ -169,20 +169,57 @@ def finish_task(session: Session, task_id: int, succeeded: bool, message: str = 
     session.flush()
 
 
-def recover_stale_tasks(session: Session, stale_version_ids: Iterable[int]) -> int:
-    """Fail running tasks left behind by a crashed process; fail their building versions."""
+def touch_task(session: Session, task_id: int) -> None:
+    """Heartbeat for a running task: recovery only reaps tasks whose heartbeat
+    is stale, so live builds are never mistaken for crashed ones."""
+    session.execute(
+        update(IndexTask).where(IndexTask.id == task_id).values(updated_at=datetime.now(timezone.utc))
+    )
+    session.flush()
+
+
+def recover_stale_tasks(session: Session, stale_seconds: int = 120) -> int:
+    """Fail running tasks whose heartbeat is stale and building versions with no
+    live task at all — i.e. a process that died mid-build. Live builds (fresh
+    heartbeat, maintained by touch_task) are never touched, so concurrent
+    startup cannot reap an active rebuild.
+
+    Version-stale detection is tied to tasks: an orphan building version is one
+    with no running task pointing at it.
+    """
+    from datetime import timedelta
+
+    cutoff = datetime.now(timezone.utc) - timedelta(seconds=stale_seconds)
     running = session.execute(
         select(IndexTask).where(IndexTask.status == TASK_RUNNING)
     ).scalars().all()
     recovered = 0
+    stale_version_ids: list[int] = []
     for task in running:
+        last = task.updated_at or task.created_at
+        if last is not None and last >= cutoff:
+            continue  # live build — leave it alone
         task.status = TASK_FAILED
-        task.error = f"recovered: process restarted while task was running ({now_iso()})"
+        task.error = f"recovered: stale heartbeat (no update for {stale_seconds}s at {now_iso()})"
         recovered += 1
         if task.version_id is not None:
-            mark_version_failed(session, task.version_id, "process restarted during build")
+            stale_version_ids.append(task.version_id)
     for version_id in stale_version_ids:
-        mark_version_failed(session, version_id, "stale building version on startup")
+        mark_version_failed(session, version_id, "stale heartbeat on startup recovery")
+
+    live_task_version_ids = set(stale_version_ids)
+    for task in running:
+        if task.version_id is not None and (task.updated_at or task.created_at) >= cutoff:
+            live_task_version_ids.add(task.version_id)
+    orphan_building = session.execute(
+        select(IndexVersion).where(
+            IndexVersion.status == VERSION_STATUS_BUILDING,
+            ~IndexVersion.id.in_(live_task_version_ids) if live_task_version_ids else True,
+        )
+    ).scalars().all()
+    for version in orphan_building:
+        mark_version_failed(session, version.id, "building version without a live task")
+        recovered += 1
     return recovered
 
 
