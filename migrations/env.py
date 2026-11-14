@@ -15,7 +15,10 @@ from backend.core.config import DATABASE_URL  # noqa: E402
 from backend.db.models import Base  # noqa: E402
 
 config = context.config
-config.set_main_option("sqlalchemy.url", DATABASE_URL)
+# Only default the URL when the caller has not provided one (tests inject a
+# throwaway database URL via set_main_option before command.upgrade).
+if not config.get_main_option("sqlalchemy.url"):
+    config.set_main_option("sqlalchemy.url", DATABASE_URL)
 
 if config.config_file_name is not None:
     fileConfig(config.config_file_name)

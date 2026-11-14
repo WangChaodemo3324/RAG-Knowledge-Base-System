@@ -26,7 +26,7 @@ def _load_env_file() -> None:
 _load_env_file()
 
 DATA_DIR = Path(os.getenv("RAG_DATA_DIR", str(BASE_DIR / "resource data")))
-DATABASE_URL = os.getenv("RAG_DATABASE_URL", "postgresql+psycopg://rag:rag@localhost:5433/rag")
+DATABASE_URL = os.getenv("RAG_DATABASE_URL", "postgresql+psycopg://rag:rag@127.0.0.1:5433/rag")
 DB_POOL_SIZE = int(os.getenv("RAG_DB_POOL_SIZE", "5"))
 DB_MAX_OVERFLOW = int(os.getenv("RAG_DB_MAX_OVERFLOW", "5"))
 DB_POOL_RECYCLE_SECONDS = int(os.getenv("RAG_DB_POOL_RECYCLE_SECONDS", "1800"))

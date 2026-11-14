@@ -1,7 +1,8 @@
 """Integration tests for the pgvector storage adapter (backend.indexing.pg_store).
 
-Requires the compose database: docker compose up -d db, then alembic upgrade head.
-Every test creates its own uniquely named version and cleans up afterwards.
+Every test runs against its own freshly migrated throwaway database
+(tests/conftest.py::test_db) — fault injection and destructive scenarios never
+touch the real knowledge base.
 """
 
 from __future__ import annotations
@@ -9,9 +10,8 @@ from __future__ import annotations
 import uuid
 
 import pytest
-from sqlalchemy import text
+from sqlalchemy.orm import Session
 
-from backend.db import session_scope
 from backend.db.models import VERSION_STATUS_ACTIVE
 from backend.indexing import pg_store
 
@@ -23,19 +23,7 @@ def make_vec(seed: int, dim: int = 1024) -> list[float]:
 
 
 @pytest.fixture()
-def db_session():
-    with session_scope() as session:
-        yield session
-
-
-@pytest.fixture()
 def version(db_session):
-    # remember the pre-test active version so teardown can restore it —
-    # activate_version tests otherwise retire the shared database's active
-    # version and leave the app without one until the next bootstrap
-    original_active = pg_store.get_active_version(db_session)
-    original_active_id = original_active.id if original_active else None
-
     name = f"test_{uuid.uuid4().hex[:12]}"
     version = pg_store.create_building_version(
         db_session,
@@ -45,19 +33,7 @@ def version(db_session):
         metadata_schema_version="test",
     )
     db_session.flush()
-    yield version
-    # FK order: children/parents/documents CASCADE on version delete;
-    # index_tasks.version_id is SET NULL, so tasks referencing this version
-    # lose the FK and must be removed by matching the orphaned rows first.
-    # Tests may create extra versions (v2 in fault-injection scenarios) — wipe
-    # every test-prefixed version; real data versions start with "v_".
-    db_session.execute(text("DELETE FROM index_tasks WHERE version_id IS NULL AND task_type LIKE 'test%' AND created_at > now() - interval '1 hour'"))
-    db_session.execute(text("DELETE FROM index_versions WHERE name LIKE 'test_%'"))
-    db_session.execute(text("DELETE FROM index_tasks WHERE version_id = :vid"), {"vid": version.id})
-    db_session.execute(text("DELETE FROM index_versions WHERE id = :vid"), {"vid": version.id})
-    if original_active_id is not None and pg_store.get_active_version(db_session) is None:
-        pg_store.activate_version(db_session, original_active_id)
-    db_session.flush()
+    return version
 
 
 def write_one_document(session, version, file_name: str = "doc_a.md") -> int:
@@ -265,7 +241,7 @@ class TestFaultInjection:
         results = pg_store.search_children(db_session, active.id, make_vec(1), top_k=3)
         assert results and results[0]["content"].startswith("回滚流程")
 
-    def test_partial_transaction_rollback(self, db_session, version):
+    def test_partial_transaction_rollback(self, db_session, test_db, version):
         """A crash mid-swap must leave the document readable from its previous chunks."""
         write_one_document(db_session, version)
         pg_store.activate_version(db_session, version.id)
@@ -273,11 +249,7 @@ class TestFaultInjection:
         before = pg_store.search_children(db_session, version.id, make_vec(1), top_k=5)
         assert len(before) == 2
 
-        from sqlalchemy.orm import Session
-
-        from backend.db import engine as global_engine
-
-        with Session(global_engine) as session2:
+        with Session(test_db.engine) as session2:
             record = pg_store.get_document(session2, version.id, "doc_a.md")
             pg_store.delete_document_chunks(session2, record)
             pg_store.write_chunks(
