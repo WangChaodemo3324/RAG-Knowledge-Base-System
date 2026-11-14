@@ -21,6 +21,7 @@ def create_db_engine(database_url: str = DATABASE_URL):
         pool_size=DB_POOL_SIZE,
         max_overflow=DB_MAX_OVERFLOW,
         pool_recycle=DB_POOL_RECYCLE_SECONDS,
+        connect_args={"connect_timeout": 10},
     )
 
 

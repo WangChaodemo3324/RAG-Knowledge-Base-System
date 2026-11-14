@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import re
 import threading
+import time
 from typing import Any
 
 import jieba
@@ -12,13 +13,16 @@ from backend.db import session_scope
 from backend.db.models import ChildChunk
 from backend.indexing import pg_store
 
+_SIGNATURE_CHECK_TTL_SECONDS = 1.5
+
 
 class KeywordSearchService:
     """BM25 keyword retrieval over the ACTIVE index version's child chunks.
 
     The corpus is rebuilt in memory whenever the (version_id, child_count)
     signature changes, so keyword and vector retrieval always read the same
-    committed version snapshot.
+    committed version snapshot. Signature checks are rate-limited (TTL) to
+    avoid two queries per search on a hot path.
     """
 
     def __init__(self) -> None:
@@ -27,6 +31,7 @@ class KeywordSearchService:
         self._child_count: int = -1
         self.children: list[dict[str, Any]] = []
         self.bm25: BM25Okapi | None = None
+        self._last_check: float = 0.0
 
     def search(self, query: str, top_k: int = 5, file_name: str = "") -> list[dict[str, Any]]:
         self.ensure_loaded()
@@ -70,8 +75,12 @@ class KeywordSearchService:
             return results
 
     def ensure_loaded(self) -> None:
+        now = time.monotonic()
+        if now - self._last_check < _SIGNATURE_CHECK_TTL_SECONDS:
+            return
         signature = self._active_signature()
         with self._lock:
+            self._last_check = time.monotonic()
             if signature == (self._version_id, self._child_count):
                 return
             version_id, _count = signature

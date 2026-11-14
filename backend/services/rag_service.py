@@ -5,6 +5,8 @@ from functools import lru_cache
 from pathlib import Path
 from typing import Any
 
+from starlette.concurrency import run_in_threadpool
+
 from backend.chat.orchestrator import ChatOrchestrator
 from backend.core.config import DATA_DIR, get_deepseek_config
 from backend.knowledge.knowledge_base import KnowledgeBase
@@ -158,7 +160,11 @@ class RagService:
 
     async def upload_document(self, file: Any) -> dict[str, Any]:
         saved = await save_uploaded_document(file, self.knowledge_base.data_dir)
-        result = self.knowledge_base.add_file(Path(saved["saved_to"]), replace_existing=saved["overwritten"])
+        # indexing is minutes of CPU + DB writes; run it in the threadpool so the
+        # event loop (and every other request) is not blocked by this endpoint
+        result = await run_in_threadpool(
+            self.knowledge_base.add_file, Path(saved["saved_to"]), saved["overwritten"]
+        )
         status = result.get("status", "indexed")
         skipped = status == "skipped"
         stats = result.get("total_stats") or {}
@@ -193,6 +199,13 @@ class RagService:
             "chunk_count": stats.get("chunk_count", 0),
             "data_files": [item["file_name"] for item in result.get("indexed", [])],
         }
+
+    def prune_retired_versions(self, keep: int = 2) -> dict[str, Any]:
+        from backend.db import session_scope
+        from backend.indexing import pg_store
+
+        with session_scope() as session:
+            return pg_store.prune_retired_versions(session, keep=keep)
 
     # ------------------------------------------------------------------
     # Introspection

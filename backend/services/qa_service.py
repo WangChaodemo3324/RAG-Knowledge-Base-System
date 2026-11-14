@@ -83,17 +83,23 @@ class QAService:
         use_memory: bool = True,
         context_window: int = 4,
         file_name: str = "",
+        precomputed_sources: list[dict[str, Any]] | None = None,
     ) -> dict[str, Any]:
         self._ensure_api_key()
 
         history = self.memory.format_history(session_id, context_window) if use_memory else ""
         search_query = f"{history}\n当前问题：{question}" if history else question
-        sources = self._retrieve_sources(
-            search_query,
-            top_k=top_k,
-            retrieval_mode=retrieval_mode,
-            file_name=file_name,
-        )
+        if precomputed_sources is not None:
+            # orchestrator already retrieved (evidence check) — reuse instead of
+            # running embedding + RRF + rerank a second time
+            sources = precomputed_sources
+        else:
+            sources = self._retrieve_sources(
+                search_query,
+                top_k=top_k,
+                retrieval_mode=retrieval_mode,
+                file_name=file_name,
+            )
         context = "\n\n".join(f"[{source['index']}] {source['content']}" for source in sources)
         llm = build_llm(self.config, reasoning=reasoning, timeout=90 if reasoning else 60)
         reasoning_instruction = (

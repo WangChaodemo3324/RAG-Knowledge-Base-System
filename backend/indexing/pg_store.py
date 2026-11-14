@@ -355,22 +355,33 @@ def expand_children_to_parents(
     top_k: int,
     extra_child_fields: Sequence[str] = (),
 ) -> list[dict[str, Any]]:
-    """Parent expansion with parent dedup, mirroring the previous ParentStore behavior."""
+    """Parent expansion with parent dedup, mirroring the previous ParentStore behavior.
+
+    Fetches all needed parents in one query (no N+1 per candidate).
+    """
+    parent_ids = [str(record.get("parent_id") or "") for record in child_records if record.get("parent_id")]
+    parents_by_id: dict[str, ParentChunk] = {}
+    if parent_ids:
+        rows = session.execute(
+            select(ParentChunk).where(
+                ParentChunk.version_id == version_id,
+                ParentChunk.parent_id.in_(parent_ids),
+            )
+        ).scalars().all()
+        parents_by_id = {parent.parent_id: parent for parent in rows}
+
     expanded: list[dict[str, Any]] = []
     seen_parent_ids: set[str] = set()
     for record in child_records:
         parent_id = str(record.get("parent_id") or "")
         if parent_id and parent_id in seen_parent_ids:
             continue
-        row = session.execute(
-            select(ParentChunk)
-            .where(ParentChunk.version_id == version_id, ParentChunk.parent_id == parent_id)
-        ).scalar_one_or_none()
+        parent = parents_by_id.get(parent_id)
 
         payload = {key: record.get(key) for key in extra_child_fields if key in record}
-        if row is not None:
+        if parent is not None:
             seen_parent_ids.add(parent_id)
-            metadata = dict(row.chunk_metadata or {})
+            metadata = dict(parent.chunk_metadata or {})
             metadata.update(
                 {
                     "retrieval_level": "parent",
@@ -385,8 +396,8 @@ def expand_children_to_parents(
                     "parent_id": parent_id,
                     "file_name": record.get("file_name", ""),
                     "source": record.get("file_name", ""),
-                    "content": row.content,
-                    "preview": row.content[:220],
+                    "content": parent.content,
+                    "preview": parent.content[:220],
                     "metadata": metadata,
                 }
             )
@@ -397,6 +408,25 @@ def expand_children_to_parents(
         if len(expanded) >= top_k:
             break
     return expanded
+
+
+def prune_retired_versions(session: Session, keep: int = 2) -> dict[str, Any]:
+    """Delete all but the most recent `keep` retired versions (CASCADE removes
+    their chunks/documents). The active version is never touched; in-flight
+    queries on a retired version could see their rows vanish, so callers should
+    only prune when no rebuild is running and keep >= 1."""
+    retired = session.execute(
+        select(IndexVersion)
+        .where(IndexVersion.status == VERSION_STATUS_RETIRED)
+        .order_by(IndexVersion.activated_at.desc().nulls_last(), IndexVersion.id.desc())
+    ).scalars().all()
+    to_remove = retired[max(keep, 0):]
+    removed = []
+    for version in to_remove:
+        removed.append(version.name)
+        session.delete(version)
+    session.flush()
+    return {"removed": removed, "kept": [version.name for version in retired[:keep]]}
 
 
 def version_stats(session: Session, version_id: int) -> dict[str, Any]:

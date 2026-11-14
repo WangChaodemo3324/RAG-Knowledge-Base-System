@@ -1,13 +1,17 @@
 from __future__ import annotations
 
+from collections import OrderedDict
 from threading import RLock
 from typing import Any
 
+_MAX_SESSIONS = 200
+
 
 class ShortTermMemory:
-    def __init__(self, max_turns: int = 30) -> None:
+    def __init__(self, max_turns: int = 30, max_sessions: int = _MAX_SESSIONS) -> None:
         self.max_turns = max_turns
-        self._sessions: dict[str, list[dict[str, str]]] = {}
+        self.max_sessions = max_sessions
+        self._sessions: OrderedDict[str, list[dict[str, str]]] = OrderedDict()
         self._lock = RLock()
 
     def _session_key(self, session_id: str | None) -> str:
@@ -21,6 +25,11 @@ class ShortTermMemory:
         }
         key = self._session_key(session_id)
         with self._lock:
+            if key in self._sessions:
+                self._sessions.move_to_end(key)
+            else:
+                if len(self._sessions) >= self.max_sessions:
+                    self._sessions.popitem(last=False)  # evict least-recently-used session
             turns = self._sessions.setdefault(key, [])
             turns.append(turn)
             if len(turns) > self.max_turns:

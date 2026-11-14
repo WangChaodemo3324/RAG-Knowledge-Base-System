@@ -20,6 +20,7 @@ from backend.indexing.pg_store import VersionError
 from backend.schemas import ChatRequest, HybridSearchRequest, MemoryClearRequest, RerankSearchRequest, SearchRequest
 from backend.services.document_service import DocumentUploadError
 from backend.services.rag_service import get_rag_service
+from starlette.concurrency import run_in_threadpool as await_to_thread
 
 configure_logging()
 logger = get_logger(__name__)
@@ -68,10 +69,11 @@ def db_health() -> dict[str, Any]:
         with engine.connect() as connection:
             connection.execute(text("SELECT 1"))
         connected = True
-        detail = ""
     except Exception as exc:  # noqa: BLE001
         connected = False
-        detail = str(exc)
+        # exception detail goes to logs only — /health is unauthenticated and
+        # must not disclose host/user/driver information
+        logger.warning("database health check failed: %s", exc)
     active = ""
     if connected:
         try:
@@ -86,7 +88,7 @@ def db_health() -> dict[str, Any]:
             active = row[0] if row else ""
         except Exception:  # noqa: BLE001
             active = ""
-    return {"connected": connected, "detail": detail, "active_version": active}
+    return {"connected": connected, "detail": "", "active_version": active}
 
 
 app.mount("/src", StaticFiles(directory=FRONTEND_DIR / "src"), name="frontend-src")
@@ -132,6 +134,18 @@ def health() -> dict[str, Any]:
             "/memory/clear",
         ],
     }
+
+
+@app.post("/index/prune", dependencies=[Depends(require_admin)])
+def prune_index_versions() -> dict[str, Any]:
+    """Delete retired index versions beyond the retention window (active version
+    is never touched). Helps bound storage growth on frequent rebuilds."""
+    service = get_rag_service()
+    try:
+        return await_to_thread(service.knowledge_base.prune_retired_versions)
+    except Exception as exc:
+        logger.exception("prune failed")
+        raise HTTPException(status_code=500, detail="清理历史版本失败") from exc
 
 
 @app.get("/index/versions")

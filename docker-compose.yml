@@ -2,6 +2,11 @@ services:
   db:
     image: pgvector/pgvector:pg16
     container_name: rag-pgvector
+    logging: &default-logging
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
     environment:
       POSTGRES_USER: ${POSTGRES_USER:-rag}
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-rag_local_dev}
@@ -23,6 +28,7 @@ services:
   api:
     build: .
     container_name: rag-api
+    logging: *default-logging
     depends_on:
       db:
         condition: service_healthy
