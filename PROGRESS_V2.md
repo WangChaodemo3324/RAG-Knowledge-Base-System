@@ -17,3 +17,9 @@
 | 12 | 自动化测试补全 | | |
 | 13 | 重构 | | |
 | 14 | 文档（INTERVIEW_GUIDE 等 5 份） | | |
+
+## 追记（模块 2 完成时）
+
+- 集成测试改为每用例独立 rag_test_<uuid> 数据库（真实迁移+即弃），故障注入永不触碰正式库
+- 排查并修复 3 个环境/代码问题：①alembic env.py 无条件覆盖 sqlalchemy.url → 测试 URL 失效；②SQLAlchemy str(url) 密码渲染为 *** → 字符串化 URL 建引擎认证必败（改用 URL 对象 + render_as_string(hide_password=False)）；③本机 WSL relay 占用 [::1]:5433 → 测试/配置强制 127.0.0.1
+- 正式库完好性验证：1 active 版本 / 139 子块，与第一阶段一致

@@ -13,9 +13,10 @@ from __future__ import annotations
 
 import threading
 import uuid
+from contextlib import contextmanager
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Any
+from typing import Any, Callable, Iterator
 
 from sqlalchemy import text as sql_text
 from sqlalchemy.orm import Session
@@ -36,10 +37,22 @@ class IndexPipelineError(RuntimeError):
 
 
 class IndexPipeline:
-    def __init__(self, data_dir: Path, embedding: Any | None = None) -> None:
+    def __init__(
+        self,
+        data_dir: Path,
+        embedding: Any | None = None,
+        session_factory: Callable[[], Any] | None = None,
+    ) -> None:
         self.processor = DocumentProcessor(data_dir)
         self.embedding = embedding or get_embedding()
         self.metadata_builder = ChunkMetadataBuilder()
+        # injectable for tests (throwaway databases); defaults to the app engine
+        self._session_factory = session_factory or session_scope
+
+    @contextmanager
+    def _session(self) -> Iterator[Session]:
+        with self._session_factory() as session:
+            yield session
 
     # ------------------------------------------------------------------
     # Public API
@@ -55,7 +68,7 @@ class IndexPipeline:
 
     def ensure_bootstrapped(self) -> dict[str, Any] | None:
         """Startup safety: recover stale tasks; build v1 if no active version exists."""
-        with session_scope() as session:
+        with self._session() as session:
             building = session.execute(
                 sql_text("SELECT id FROM index_versions WHERE status = 'building'")
             ).all()
@@ -67,7 +80,7 @@ class IndexPipeline:
         return self.full_build(reason="bootstrap: no active index version")
 
     def version_overview(self) -> dict[str, Any]:
-        with session_scope() as session:
+        with self._session() as session:
             active = pg_store.get_active_version(session)
             stats = pg_store.version_stats(session, active.id) if active else {}
             return {
@@ -94,7 +107,7 @@ class IndexPipeline:
         version_name = f"v_{started_at.strftime('%Y%m%d%H%M%S')}_{uuid.uuid4().hex[:4]}"
         chunk_settings = self.processor.chunk_settings()
 
-        with session_scope() as session:
+        with self._session() as session:
             task = pg_store.start_task(session, "full_rebuild")
             version = pg_store.create_building_version(
                 session,
@@ -115,7 +128,13 @@ class IndexPipeline:
                 except Exception as exc:  # noqa: BLE001
                     failed.append({"filename": file_path.name, "error": str(exc)})
 
-            with session_scope() as session:
+            with self._session() as session:
+                # an empty build must never replace a good active version —
+                # e.g. an embedding-service outage failing every file silently
+                if not indexed:
+                    raise IndexPipelineError(
+                        f"no files were indexed ({len(failed)} failed); refusing to activate empty version"
+                    )
                 problems = pg_store.validate_version(session, version_id)
                 problems.extend(self._cross_check_problems(session, version_id, indexed))
                 if problems:
@@ -133,7 +152,7 @@ class IndexPipeline:
                     message=f"built {version_name}: {len(indexed)} files, {len(failed)} failed",
                 )
         except Exception as exc:
-            with session_scope() as session:
+            with self._session() as session:
                 pg_store.finish_task(session, task_id, succeeded=False, error=str(exc))
                 pg_store.mark_version_failed(session, version_id, str(exc))
             raise
@@ -149,7 +168,7 @@ class IndexPipeline:
     def _index_file_into_version(self, version_id: int, file_path: Path, mode: str) -> dict[str, Any]:
         """Prepare + embed outside any DB transaction; write inside one transaction."""
         prepared = self._prepare_file(file_path)
-        with session_scope() as session:
+        with self._session() as session:
             record = pg_store.upsert_document(
                 session,
                 version_id=version_id,
@@ -178,7 +197,7 @@ class IndexPipeline:
         # The task row, the old-chunk deletion and the new-chunk insertion all
         # commit (or roll back) together: a crash leaves no stale task and the
         # document keeps its previous chunks.
-        with session_scope() as session:
+        with self._session() as session:
             version = pg_store.require_active_version(session)
             task = pg_store.start_task(session, "incremental", version_id=version.id)
 
