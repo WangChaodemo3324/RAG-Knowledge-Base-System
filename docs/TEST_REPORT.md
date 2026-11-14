@@ -66,9 +66,37 @@
 
 （备注：spike 脚本第 [2] 步在本机末次运行中因上述 API 限制再次中断，中断本身即为证据 #3；四项结构性结论均有数据库直查或签名检查实证。）
 
-## 6. 容器全栈验证
+## 6. 容器全栈验证（9/9 通过）
 
-`docker compose up -d api --build`：镜像构建（python:3.12-slim + torch CPU + 全依赖）、容器内 alembic 自动升级、uvicorn 启动、健康检查（含 DB 与 active 版本）、管理端点 X-API-Key 认证（401/授权）、检索端点容器内真实调用。——结果见本文末尾"容器验证补充"。
+`docker compose -f docker-compose.yml -f docker-compose.local.yml up -d api --build`，验证脚本 `tools/container_verify.py`（UTF-8 安全，绕开 git-bash curl 的中文编码问题）：
+
+| 检查项 | 结果 |
+| --- | --- |
+| /health status=ok + DB connected | ✅ |
+| /index/versions 显示 active 版本 | ✅ |
+| 容器内向量检索命中期望来源 | ✅（"生产环境发布失败后如何回滚？" → 生产环境发布与回滚操作规范.md） |
+| 容器内 BM25 检索返回 3 条 | ✅ |
+| 重建（无 key）→ 401 | ✅ |
+| 重建（错误 key）→ 401 | ✅ |
+| 重建（admin key）→ 蓝绿全量重建 | ✅（容器内嵌入 139 块，chunks=139/files=7） |
+| 版本原子切换 + 旧版 retired | ✅（active=新版本，retired=2） |
+| 重建后新版本检索正常 | ✅ |
+
+**容器化过程中发现并修复的真实缺陷**：
+1. `onnxruntime` 是隐式依赖（宿主机 conda 环境预装，requirements.txt 缺失）→ 容器内 ModuleNotFoundError，已补入 requirements 并解耦 torch 安装层
+2. Dockerfile `COPY "resource data" "..."` 引号路径解析失败 → 改 JSON 数组形式 `COPY ["resource data", ...]`
+3. 基础镜像拉取被 DNS 污染（auth.docker.io 解析异常）→ 镜像源预拉取 + 本地 tag
+4. **集成测试副作用**：`test_only_one_active_version` 会把共享库的 active 版本 retire 且不恢复，导致容器首次启动触发 bootstrap 重建（数据无损，且意外真实验证了"无 active 自动 bootstrap"路径）→ fixture teardown 恢复原 active，复跑验证 active 版本全程保持
+
+## 7. 最终测试汇总
+
+| 套件 | 结果 |
+| --- | --- |
+| 单元测试 | 27/27 ✅ |
+| 集成/故障注入（真实 PG） | 11/11 ✅ |
+| 检索回归 vs 基线（四端点 × 13 用例） | 全过，零回退 ✅ |
+| 容器全栈验证 | 9/9 ✅ |
+| 数据泄漏检查 | 0（active 版本在测试前后保持一致）✅ |
 
 ## 7. 遗留事项
 

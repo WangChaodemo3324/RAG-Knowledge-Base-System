@@ -35,9 +35,17 @@
 - `Dockerfile`（python:3.12-slim + torch CPU）、`.dockerignore`、`docker-compose.yml`（db+api、健康检查、pgdata/hf_models 卷、`./resource data` bind mount）
 - `.env.example` 补齐 DEEPSEEK/POSTGRES/RAG_ADMIN_API_KEY
 
+### 容器化与部署验证（2026-11-15 实测）
+- 基础镜像经 daocloud 镜像源预拉取（auth.docker.io DNS 污染绕行）；Dockerfile：torch 层与 requirements 层分离、`COPY ["resource data", ...]` JSON 数组语法
+- **发现并修复 onnxruntime 隐式依赖**（宿主机环境预装掩盖了 requirements.txt 缺失）
+- 容器验证 9/9：health/检索/认证 401/带 key 蓝绿重建/版本切换/重建后检索（`tools/container_verify.py`）
+- 环境修复记录：Windows 虚拟机平台经 UAC 提权启用（`scripts/enable-vm-platform.ps1`）
+
 ### 测试
 - 单元测试 27/27 通过（RRF/分块/路由/证据检查/记忆/认证）
-- 集成与故障注入测试已编写（`tests/integration/test_pg_store.py`，10 个用例：版本互斥、cosine 检索、父块去重、文档交换无孤儿、任务并发拒绝、崩溃恢复、半事务回滚），**待 PostgreSQL 可用后真实运行**
+- 集成与故障注入测试 11/11 通过（真实 compose PG）：蓝绿互斥、cosine 检索、父块去重、文档交换无孤儿、任务并发拒绝、崩溃恢复、半事务回滚
+- 测试期间抓出并修复 4 个真实缺陷：bm25 迭代 Select 对象、跨会话提交缺失、测试数据泄漏、测试 side-effect 挤掉共享库 active 版本（fixture 现恢复原 active）
+- 检索回归：新栈四端点 13/13 命中，mean_rank 与基线逐位一致，零回退（`tools/baseline_capture.py --compare`）
 
 ### 已知问题 / 后续
 - PGVectorStore spike 与全部 DB 依赖验证被 Windows「虚拟机平台」未启用阻塞（见 PROGRESS.md）

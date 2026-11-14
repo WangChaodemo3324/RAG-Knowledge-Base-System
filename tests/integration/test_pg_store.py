@@ -30,6 +30,12 @@ def db_session():
 
 @pytest.fixture()
 def version(db_session):
+    # remember the pre-test active version so teardown can restore it —
+    # activate_version tests otherwise retire the shared database's active
+    # version and leave the app without one until the next bootstrap
+    original_active = pg_store.get_active_version(db_session)
+    original_active_id = original_active.id if original_active else None
+
     name = f"test_{uuid.uuid4().hex[:12]}"
     version = pg_store.create_building_version(
         db_session,
@@ -49,6 +55,8 @@ def version(db_session):
     db_session.execute(text("DELETE FROM index_versions WHERE name LIKE 'test_%'"))
     db_session.execute(text("DELETE FROM index_tasks WHERE version_id = :vid"), {"vid": version.id})
     db_session.execute(text("DELETE FROM index_versions WHERE id = :vid"), {"vid": version.id})
+    if original_active_id is not None and pg_store.get_active_version(db_session) is None:
+        pg_store.activate_version(db_session, original_active_id)
     db_session.flush()
 
 

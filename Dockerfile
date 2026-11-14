@@ -8,10 +8,12 @@ WORKDIR /app
 
 RUN apt-get update && apt-get install -y --no-install-recommends libgomp1 && rm -rf /var/lib/apt/lists/*
 
-# torch: force CPU wheels to keep the image small
+# torch: force CPU wheels to keep the image small; installed before requirements
+# so that requirements.txt changes do not invalidate the torch layer
+RUN pip install --no-cache-dir torch==2.8.0 --index-url https://download.pytorch.org/whl/cpu
+
 COPY requirements.txt .
-RUN pip install --no-cache-dir torch==2.8.0 --index-url https://download.pytorch.org/whl/cpu \
-    && pip install --no-cache-dir -r requirements.txt
+RUN pip install --no-cache-dir -r requirements.txt
 
 COPY alembic.ini pyproject.toml* pytest.ini* ./
 COPY migrations ./migrations
@@ -20,7 +22,7 @@ COPY api.py .
 COPY frontend ./frontend
 COPY web ./web
 COPY scripts ./scripts
-COPY "resource data" "./resource data"
+COPY ["resource data", "./resource data"]
 
 EXPOSE 8012
 
