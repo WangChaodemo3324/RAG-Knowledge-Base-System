@@ -1,19 +1,30 @@
 from __future__ import annotations
 
+import logging
+import time
+import uuid
 from pathlib import Path
 from typing import Any
 
-from fastapi import FastAPI, File, HTTPException, UploadFile
+from fastapi import Depends, FastAPI, File, HTTPException, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import FileResponse
+from fastapi.responses import FileResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
+from sqlalchemy import text
 
+from backend.core.auth import require_admin
+from backend.core.logging import configure_logging, get_logger, request_id_var
+from backend.core.config import ADMIN_API_KEY
+from backend.db import engine
+from backend.indexing.pg_store import VersionError
 from backend.schemas import ChatRequest, HybridSearchRequest, MemoryClearRequest, RerankSearchRequest, SearchRequest
 from backend.services.document_service import DocumentUploadError
 from backend.services.rag_service import get_rag_service
 
+configure_logging()
+logger = get_logger(__name__)
 
-app = FastAPI(title="LangChain RAG API", version="1.0.0")
+app = FastAPI(title="LangChain RAG API", version="2.0.0")
 PROJECT_ROOT = Path(__file__).resolve().parent.parent
 FRONTEND_DIR = PROJECT_ROOT / "frontend"
 WEB_DIR = PROJECT_ROOT / "web"
@@ -23,10 +34,53 @@ WEB_STANDALONE_INDEX = WEB_DIR / "index.html"
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],
-    allow_credentials=True,
+    allow_credentials=False,
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+
+@app.middleware("http")
+async def request_context_middleware(request, call_next):
+    request_id = request.headers.get("X-Request-ID") or uuid.uuid4().hex[:12]
+    request_id_var.set(request_id)
+    started = time.perf_counter()
+    try:
+        response = await call_next(request)
+    except Exception:
+        logger.exception("unhandled exception", extra={"event": "unhandled"})
+        return JSONResponse(status_code=500, content={"detail": "服务器内部错误，请查看服务端日志"})
+    duration_ms = int((time.perf_counter() - started) * 1000)
+    response.headers["X-Request-ID"] = request_id
+    logger.info(
+        "%s %s -> %s %sms",
+        request.method,
+        request.url.path,
+        response.status_code,
+        duration_ms,
+        extra={"event": "http_access", "route": request.url.path, "duration_ms": duration_ms, "status": response.status_code},
+    )
+    return response
+
+
+def db_health() -> dict[str, Any]:
+    try:
+        with engine.connect() as connection:
+            connection.execute(text("SELECT 1"))
+        connected = True
+        detail = ""
+    except Exception as exc:  # noqa: BLE001
+        connected = False
+        detail = str(exc)
+    active = ""
+    if connected:
+        try:
+            service = get_rag_service()
+            active = (service.knowledge_base.info().get("active_version") or {}).get("name", "")
+        except Exception:  # noqa: BLE001
+            active = ""
+    return {"connected": connected, "detail": detail, "active_version": active}
+
 
 app.mount("/src", StaticFiles(directory=FRONTEND_DIR / "src"), name="frontend-src")
 app.mount("/web-src", StaticFiles(directory=WEB_DIR / "src"), name="web-src")
@@ -49,12 +103,15 @@ def web_root() -> FileResponse:
 
 @app.get("/health")
 def health() -> dict[str, Any]:
+    database = db_health()
     return {
-        "status": "ok",
+        "status": "ok" if database["connected"] else "degraded",
         "service": "LangChain RAG API",
+        "database": database,
         "docs": "/docs",
         "endpoints": [
             "/info",
+            "/index/versions",
             "/documents/upload",
             "/knowledge-base/rebuild",
             "/search",
@@ -70,30 +127,41 @@ def health() -> dict[str, Any]:
     }
 
 
+@app.get("/index/versions")
+def index_versions() -> dict[str, Any]:
+    service = get_rag_service()
+    return service.knowledge_base.info()
+
+
 @app.get("/info")
 def info() -> dict[str, Any]:
     service = get_rag_service()
     return service.info()
 
 
-@app.post("/documents/upload")
+@app.post("/documents/upload", dependencies=[Depends(require_admin)])
 async def upload_document(file: UploadFile = File(..., description="上传 .pdf/.md/.txt 文档")) -> dict[str, Any]:
     service = get_rag_service()
     try:
         return await service.upload_document(file)
+    except VersionError as exc:
+        raise HTTPException(status_code=409, detail=str(exc)) from exc
     except DocumentUploadError as exc:
         raise HTTPException(status_code=exc.status_code, detail=exc.message) from exc
     except Exception as exc:
-        raise HTTPException(status_code=500, detail=f"上传并增量入库失败：{exc}") from exc
+        raise HTTPException(status_code=500, detail="上传并增量入库失败") from exc
 
 
-@app.post("/knowledge-base/rebuild")
+@app.post("/knowledge-base/rebuild", dependencies=[Depends(require_admin)])
 def rebuild_knowledge_base() -> dict[str, Any]:
     service = get_rag_service()
     try:
         return service.rebuild_knowledge_base()
+    except VersionError as exc:
+        raise HTTPException(status_code=409, detail=str(exc)) from exc
     except Exception as exc:
-        raise HTTPException(status_code=500, detail=f"全量重建知识库失败：{exc}") from exc
+        logger.exception("rebuild failed")
+        raise HTTPException(status_code=500, detail="全量重建知识库失败") from exc
 
 
 @app.post("/search")
@@ -182,7 +250,7 @@ def chat(payload: ChatRequest) -> dict[str, Any]:
     except RuntimeError as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
     except Exception as exc:
-        raise HTTPException(status_code=502, detail=f"DeepSeek 调用失败：{exc}") from exc
+        raise HTTPException(status_code=502, detail="大模型调用失败") from exc
 
 
 @app.post("/web-search")
@@ -203,7 +271,7 @@ def web_search(payload: SearchRequest) -> dict[str, Any]:
             "results": tool_result.get("results", []),
         }
     except Exception as exc:
-        raise HTTPException(status_code=502, detail=f"联网搜索失败：{exc}") from exc
+        raise HTTPException(status_code=502, detail="联网搜索失败") from exc
 
 
 @app.post("/web-chat")
@@ -221,7 +289,7 @@ def web_chat(payload: ChatRequest) -> dict[str, Any]:
     except RuntimeError as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
     except Exception as exc:
-        raise HTTPException(status_code=502, detail=f"联网问答失败：{exc}") from exc
+        raise HTTPException(status_code=502, detail="联网问答失败") from exc
 
 
 @app.post("/agent-chat")
@@ -239,10 +307,10 @@ def agent_chat(payload: ChatRequest) -> dict[str, Any]:
     except RuntimeError as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
     except Exception as exc:
-        raise HTTPException(status_code=502, detail=f"ReAct Agent 调用失败：{exc}") from exc
+        raise HTTPException(status_code=502, detail="ReAct Agent 调用失败") from exc
 
 
-@app.post("/memory/clear")
+@app.post("/memory/clear", dependencies=[Depends(require_admin)])
 def clear_memory(payload: MemoryClearRequest) -> dict[str, Any]:
     service = get_rag_service()
     return service.clear_memory(payload.session_id)

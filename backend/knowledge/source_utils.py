@@ -1,19 +1,23 @@
 from __future__ import annotations
 
 import json
-from pathlib import Path
 from typing import Any
 
 
-def doc_to_source(doc: Any, index: int) -> dict[str, Any]:
-    metadata = getattr(doc, "metadata", {})
-    source = metadata.get("source", "") if metadata else ""
+def doc_to_source(item: Any, index: int) -> dict[str, Any]:
+    """Normalize an expanded retrieval row (dict) into the API source shape."""
+    if not isinstance(item, dict):  # tolerate legacy Document objects
+        metadata = getattr(item, "metadata", {}) or {}
+        content = str(getattr(item, "page_content", "") or "")
+        item = {"metadata": metadata, "content": content}
+    metadata = item.get("metadata") or {}
+    content = str(item.get("content") or "")
     return {
         "index": index,
-        "source": Path(source).name if source else "",
+        "source": item.get("file_name") or item.get("source") or "",
         "chunk_id": metadata.get("chunk_id", ""),
-        "parent_id": metadata.get("parent_id", ""),
-        "retrieval_level": metadata.get("retrieval_level", ""),
+        "parent_id": item.get("parent_id", ""),
+        "retrieval_level": item.get("retrieval_level", ""),
         "matched_child_id": metadata.get("matched_child_id", ""),
         "matched_child_preview": metadata.get("matched_child_preview", ""),
         "retrieval_mode": metadata.get("retrieval_mode", ""),
@@ -31,8 +35,8 @@ def doc_to_source(doc: Any, index: int) -> dict[str, Any]:
         "section_title": metadata.get("section_title", ""),
         "file_hash_short": metadata.get("file_hash_short", ""),
         "metadata": metadata,
-        "content": doc.page_content,
-        "preview": doc.page_content[:220],
+        "content": content,
+        "preview": content[:220],
     }
 
 

@@ -27,11 +27,14 @@ def _load_env_file() -> None:
 _load_env_file()
 
 DATA_DIR = Path(os.getenv("RAG_DATA_DIR", str(BASE_DIR / "resource data")))
-CHROMA_DIR = Path(os.getenv("RAG_CHROMA_DIR", str(BASE_DIR / "chroma_db")))
+DATABASE_URL = os.getenv("RAG_DATABASE_URL", "postgresql+psycopg://rag:rag@localhost:5433/rag")
+DB_POOL_SIZE = int(os.getenv("RAG_DB_POOL_SIZE", "5"))
+DB_MAX_OVERFLOW = int(os.getenv("RAG_DB_MAX_OVERFLOW", "5"))
+DB_POOL_RECYCLE_SECONDS = int(os.getenv("RAG_DB_POOL_RECYCLE_SECONDS", "1800"))
+ADMIN_API_KEY = os.getenv("RAG_ADMIN_API_KEY", "").strip()
 MANIFEST_FILE = Path(os.getenv("RAG_MANIFEST_FILE", str(BASE_DIR / "manifest.json")))
 PARENT_STORE_FILE = Path(os.getenv("RAG_PARENT_STORE_FILE", str(BASE_DIR / "parent_store.json")))
 CHILD_STORE_FILE = Path(os.getenv("RAG_CHILD_STORE_FILE", str(BASE_DIR / "child_store.json")))
-CHROMA_COLLECTION_NAME = os.getenv("RAG_CHROMA_COLLECTION_NAME", "rag_documents")
 SUPPORTED_DOCUMENT_EXTENSIONS = {".pdf", ".md", ".txt"}
 FALLBACK_DATA_FILE = BASE_DIR / "resource data" / "生产环境发布与回滚操作规范.md"
 CHUNK_SIZE = int(os.getenv("RAG_CHUNK_SIZE", "700"))
