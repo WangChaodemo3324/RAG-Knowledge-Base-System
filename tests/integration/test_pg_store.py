@@ -208,6 +208,7 @@ class TestTasksAndRecovery:
             text("UPDATE index_tasks SET updated_at = now() - interval '10 minutes' WHERE id = :tid"),
             {"tid": task.id},
         )
+        db_session.expire_all()  # identity map holds the pre-UPDATE heartbeat
         recovered = pg_store.recover_stale_tasks(db_session, stale_seconds=300)
         assert recovered == 1
         db_session.refresh(task)
