@@ -44,13 +44,12 @@ class TestEvidenceChecker:
         decision = checker.check([{"content": "太短", "rerank_score": 9.9}])
         assert decision.sufficient is False
 
-    def test_unbounded_logit_threshold_is_always_met(self):
-        """Documents the P1 finding: raw cross-encoder logits far exceed 0.45."""
-        checker = EvidenceChecker(score_threshold=0.45)
-        decision = checker.check(
-            [{"content": "x" * 200, "rerank_score": 3.7}, {"content": "y" * 200, "rerank_score": -1.2}]
-        )
-        assert decision.sufficient is True and decision.top_score == pytest.approx(3.7)
+    def test_calibrated_threshold_separates_distributions(self):
+        """0.25 calibrated on real rerank score data (tests/golden/rerank_calibration.json):
+        positives min 0.462 / negatives max 0.082 — margin symmetric."""
+        checker = EvidenceChecker(score_threshold=0.25)
+        assert checker.check([{"content": "x" * 200, "rerank_score": 0.462}]).sufficient is True
+        assert checker.check([{"content": "x" * 200, "rerank_score": 0.082}]).sufficient is False
 
     def test_fallback_counts_when_no_scores(self):
         checker = EvidenceChecker()

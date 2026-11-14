@@ -131,5 +131,5 @@ class QueryFeatureExtractor:
         if not query or len(query) > 16:
             return False
         return self._contains(query, self.VAGUE_REFERENCE_WORDS) and any(
-            marker in query for marker in ("怎么", "如何", "流程", "配置", "是什么")
+            marker in query for marker in ("怎么", "如何", "流程", "配置", "是什么", "对吗", "对不对", "是不是", "好吗")
         )

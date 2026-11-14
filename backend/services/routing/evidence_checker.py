@@ -6,9 +6,16 @@ from backend.services.routing.route_schema import EvidenceDecision
 
 
 class EvidenceChecker:
-    """Judge whether retrieved KB candidates are strong enough to answer from KB."""
+    """Judge whether retrieved KB candidates are strong enough to answer from KB.
 
-    def __init__(self, min_content_length: int = 80, score_threshold: float = 0.45) -> None:
+    score_threshold calibrated on 2026-11-15 with tools/eval_rerank_calibration.py:
+    positives (on-topic) top-1 rerank scores min=0.462/mean=0.914; negatives
+    (off-topic) max=0.082. 0.25 gives symmetric margins (0.21 above negatives,
+    0.21 below the weakest positive) instead of the previous 0.45 which sat only
+    0.012 above the weakest positive.
+    """
+
+    def __init__(self, min_content_length: int = 80, score_threshold: float = 0.25) -> None:
         self.min_content_length = min_content_length
         self.score_threshold = score_threshold
 
