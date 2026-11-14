@@ -118,6 +118,10 @@ class RagService:
     def web_search(self, query: str, top_k: int = 4) -> list[dict[str, Any]]:
         return self.qa.web_search(query, top_k)
 
+    def chat_stream(self, *args: Any, **kwargs: Any):
+        """SSE generator passthrough (see QAService.chat_stream)."""
+        return self.qa.chat_stream(*args, **kwargs)
+
     def web_search_with_trace(self, query: str, top_k: int = 4) -> dict[str, Any]:
         return self.qa.web_search_with_trace(query, top_k)
 

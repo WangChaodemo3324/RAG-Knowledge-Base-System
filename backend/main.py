@@ -8,7 +8,7 @@ from typing import Any
 
 from fastapi import Depends, FastAPI, File, HTTPException, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import FileResponse, JSONResponse
+from fastapi.responses import FileResponse, JSONResponse, StreamingResponse
 from fastapi.staticfiles import StaticFiles
 from sqlalchemy import text
 
@@ -121,6 +121,7 @@ def health() -> dict[str, Any]:
         "endpoints": [
             "/info",
             "/index/versions",
+            "/index/prune",
             "/documents/upload",
             "/knowledge-base/rebuild",
             "/search",
@@ -272,6 +273,44 @@ def chat(payload: ChatRequest) -> dict[str, Any]:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
     except Exception as exc:
         raise HTTPException(status_code=502, detail="大模型调用失败") from exc
+
+
+@app.post("/chat/stream")
+def chat_stream(payload: ChatRequest) -> StreamingResponse:
+    """SSE streaming variant of /chat for the knowledge-base path.
+
+    Non-streaming /chat remains unchanged and still handles full routing.
+    SSE events: sources → token* → done, plus error events; [DONE] terminator.
+    """
+    import json as _json
+
+    service = get_rag_service()
+
+    def event_stream():
+        try:
+            for event in service.chat_stream(
+                payload.question,
+                payload.top_k,
+                payload.retrieval_mode,
+                payload.reasoning,
+                payload.session_id,
+                payload.use_memory,
+                payload.context_window,
+                payload.file_name,
+            ):
+                yield f"data: {_json.dumps(event, ensure_ascii=False)}\n\n"
+            yield "data: [DONE]\n\n"
+        except GeneratorExit:
+            raise
+        except Exception:
+            logger.exception("chat_stream endpoint failed")
+            yield f"data: {_json.dumps({'type': 'error', 'detail': '流式服务异常'})}\n\n"
+
+    return StreamingResponse(
+        event_stream(),
+        media_type="text/event-stream",
+        headers={"Cache-Control": "no-cache", "X-Accel-Buffering": "no", "Connection": "keep-alive"},
+    )
 
 
 @app.post("/web-search")

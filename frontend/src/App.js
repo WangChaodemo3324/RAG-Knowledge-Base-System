@@ -6,8 +6,9 @@ import {
   rebuildKnowledgeBaseIndex,
   renderError,
   submitRagRequest,
+  submitRagStream,
   uploadDocumentFile,
-} from "./api.js?v=20260529-4";
+} from "./api.js?v=20261115-2";
 import SourcePanel from "./components/SourcePanel.js?v=20260607-1";
 import TopBar from "./components/TopBar.js?v=20260604-1";
 import WorkspacePanel from "./components/WorkspacePanel.js?v=20260604-1";
@@ -222,9 +223,51 @@ export default {
           reasoning: reasoning.value,
           ...memoryPayload,
         };
+
+        if (mode.value === "chat") {
+          // SSE streaming with non-streaming fallback
+          let streamed = false;
+          try {
+            streamed = await submitRagStream(payload, {
+              onSources: (items) => {
+                sources.value = items || [];
+              },
+              onToken: (token) => {
+                pending.text += token;
+                scrollMessages();
+              },
+              onDone: (event) => {
+                if (event.answer) pending.text = event.answer;
+                scrollMessages();
+              },
+              onError: (detail) => {
+                pending.text += `\n\n[${detail}]`;
+              },
+            });
+          } catch (streamError) {
+            streamed = false; // fall back below
+          }
+          if (streamed) {
+            question.value = "";
+            return;
+          }
+          // non-streaming fallback for chat mode
+          const data = await submitRagRequest(mode.value, payload);
+          pending.text = data.answer || "没有返回答案。";
+          sources.value = data.sources || [];
+          agentTrace.value = data.tool_traces || data.trace || [];
+          routeInfo.route = data.route || "";
+          routeInfo.routeReason = data.route_reason || "";
+          routeInfo.answerSource = data.answer_source || "";
+          routeInfo.confidence = data.route_confidence ?? "";
+          routeInfo.router = data.route_router || "";
+          question.value = "";
+          return;
+        }
+
         const data = await submitRagRequest(mode.value, payload);
 
-        if (mode.value === "chat" || mode.value === "web" || mode.value === "agent") {
+        if (mode.value === "web" || mode.value === "agent") {
           pending.text = data.answer || "没有返回答案。";
           sources.value = data.sources || [];
           agentTrace.value = data.tool_traces || data.trace || [];
