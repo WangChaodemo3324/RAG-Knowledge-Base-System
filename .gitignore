@@ -1,0 +1,16 @@
+# 密钥与本地配置
+.env
+
+# Python 运行产物
+__pycache__/
+*.pyc
+.venv/
+.conda-py310/
+
+# 索引与运行时产物（首次启动自动重建 / 自动生成）
+chroma_db/
+manifest.json
+parent_store.json
+child_store.json
+logs/
+route_logs.jsonl

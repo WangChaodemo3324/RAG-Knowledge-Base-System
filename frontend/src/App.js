@@ -1,0 +1,351 @@
+import { computed, onMounted, reactive, ref } from "https://unpkg.com/vue@3.5.13/dist/vue.esm-browser.prod.js";
+
+import {
+  clearMemory as clearMemoryRequest,
+  fetchInfo,
+  rebuildKnowledgeBaseIndex,
+  renderError,
+  submitRagRequest,
+  uploadDocumentFile,
+} from "./api.js?v=20260529-4";
+import SourcePanel from "./components/SourcePanel.js?v=20260607-1";
+import TopBar from "./components/TopBar.js?v=20260604-1";
+import WorkspacePanel from "./components/WorkspacePanel.js?v=20260604-1";
+import {
+  actionLabel,
+  canUseMemoryMode,
+  canUseReasoningMode,
+  modeHintText,
+  modeLabel,
+  pendingTextForMode,
+  sendTextForMode,
+} from "./modes.js?v=20260604-1";
+import { loadSessionId } from "./session.js?v=20260528-3";
+
+export default {
+  name: "App",
+  components: {
+    TopBar,
+    WorkspacePanel,
+    SourcePanel,
+  },
+  setup() {
+    const mode = ref("chat");
+    const topK = ref(4);
+    const queryMode = ref("AUTO_DOCUMENT");
+    const retrievalMode = ref("hybrid_rerank");
+    const activeDocument = ref("");
+    const reasoning = ref(false);
+    const useMemory = ref(true);
+    const contextWindow = ref(4);
+    const sessionId = ref(loadSessionId());
+    const question = ref("");
+    const busy = ref(false);
+    const selectedFile = ref(null);
+    const uploading = ref(false);
+    const rebuilding = ref(false);
+    const uploadStatus = reactive({ text: "", kind: "" });
+    const rebuildStatus = reactive({ text: "", kind: "" });
+    const info = reactive({
+      chunkCount: "-",
+      dataFiles: [],
+      model: "-",
+      keyState: "-",
+      ready: false,
+      statusText: "初始化中",
+      statusKind: "",
+    });
+    const messages = ref([{ role: "system", text: "知识库正在加载。" }]);
+    const sources = ref([]);
+    const agentTrace = ref([]);
+    const routeInfo = reactive({ route: "", routeReason: "", answerSource: "", confidence: "", router: "" });
+
+    const canUseReasoning = computed(() => canUseReasoningMode(mode.value));
+    const canUseMemory = computed(() => canUseMemoryMode(mode.value));
+    const selectedFileName = computed(() => selectedFile.value?.name || "未选择文件");
+    const sendText = computed(() => sendTextForMode(mode.value));
+    const modeHint = computed(() => modeHintText(mode.value, reasoning.value, useMemory.value, contextWindow.value));
+
+    function scrollMessages() {
+      queueMicrotask(() => {
+        const node = document.querySelector(".messages");
+        if (node) node.scrollTop = node.scrollHeight;
+      });
+    }
+
+    function addMessage(role, text) {
+      messages.value.push({ role, text });
+      scrollMessages();
+    }
+
+    function resetRouteInfo() {
+      routeInfo.route = "";
+      routeInfo.routeReason = "";
+      routeInfo.answerSource = "";
+      routeInfo.confidence = "";
+      routeInfo.router = "";
+    }
+
+    function setMode(nextMode) {
+      if (mode.value === nextMode) return;
+      mode.value = nextMode;
+      sources.value = [];
+      agentTrace.value = [];
+      resetRouteInfo();
+      addMessage("system", `已切换到${modeLabel(nextMode)}。`);
+    }
+
+    async function clearMemory() {
+      if (busy.value) return;
+      try {
+        const data = await clearMemoryRequest(sessionId.value);
+        addMessage("system", `短期记忆已清空，移除 ${data.removed_turns || 0} 轮历史。`);
+      } catch (error) {
+        addMessage("system", renderError(error));
+      }
+    }
+
+    function selectDocument(file) {
+      selectedFile.value = file;
+      uploadStatus.text = "";
+      uploadStatus.kind = "";
+    }
+
+    function selectKnowledgeDocument(fileName) {
+      const nextDocument = activeDocument.value === fileName ? "" : fileName || "";
+      activeDocument.value = nextDocument;
+      queryMode.value = activeDocument.value ? "DOCUMENT" : "AUTO_DOCUMENT";
+      mode.value = "chat";
+      sources.value = [];
+      agentTrace.value = [];
+      resetRouteInfo();
+      if (activeDocument.value) {
+        addMessage("system", `已选择当前文档：${activeDocument.value}`);
+      } else {
+        addMessage("system", "已取消当前文档，切回自动知识问答。");
+      }
+    }
+
+    async function uploadDocument() {
+      if (!selectedFile.value || uploading.value || rebuilding.value) return;
+
+      uploading.value = true;
+      uploadStatus.text = "上传中...";
+      uploadStatus.kind = "";
+      rebuildStatus.text = "";
+      rebuildStatus.kind = "";
+
+      try {
+        const data = await uploadDocumentFile(selectedFile.value);
+        uploadStatus.text = `${data.filename} 已增量入库`;
+        uploadStatus.kind = "success";
+        addMessage("system", `${data.filename} 上传成功，已增量入库，现在可以参与检索问答。`);
+        selectedFile.value = null;
+        await loadInfo({ resetMessage: false });
+      } catch (error) {
+        uploadStatus.text = renderError(error);
+        uploadStatus.kind = "error";
+      } finally {
+        uploading.value = false;
+      }
+    }
+
+    async function rebuildKnowledgeBase() {
+      if (uploading.value || rebuilding.value) return;
+
+      rebuilding.value = true;
+      rebuildStatus.text = "全量重建中...";
+      rebuildStatus.kind = "";
+      uploadStatus.text = "";
+      uploadStatus.kind = "";
+
+      try {
+        const data = await rebuildKnowledgeBaseIndex();
+        rebuildStatus.text = `完成：${data.data_files?.length || 0} 个文件，${data.chunk_count} 个文本块`;
+        rebuildStatus.kind = "success";
+        addMessage("system", `知识库已全量重建：${data.data_files?.length || 0} 个文件，${data.chunk_count} 个文本块。`);
+        await loadInfo({ resetMessage: false });
+      } catch (error) {
+        rebuildStatus.text = renderError(error);
+        rebuildStatus.kind = "error";
+      } finally {
+        rebuilding.value = false;
+      }
+    }
+
+    async function loadInfo(options = {}) {
+      try {
+        const data = await fetchInfo();
+        info.chunkCount = data.chunk_count;
+        info.dataFiles = data.data_files || [];
+        info.model = data.deepseek_model;
+        info.keyState = data.has_api_key ? "已配置" : "未配置";
+        info.ready = data.has_api_key;
+        info.statusKind = data.has_api_key ? "ready" : "";
+        info.statusText = data.has_api_key ? "已连接" : "未配置 Key";
+        if (options.resetMessage !== false) {
+          messages.value = [{ role: "system", text: `知识库已加载：${data.data_files?.length || 0} 个文件，${data.chunk_count} 个文本块。` }];
+        }
+      } catch (error) {
+        info.statusKind = "error";
+        info.statusText = "加载失败";
+        messages.value = [{ role: "system", text: renderError(error) }];
+      }
+    }
+
+    async function submitQuestion() {
+      const text = question.value.trim();
+      if (!text || busy.value) return;
+
+      busy.value = true;
+      agentTrace.value = [];
+      resetRouteInfo();
+      addMessage("user", text);
+      const pending = reactive({
+        role: "assistant",
+        text: pendingTextForMode(mode.value, reasoning.value),
+      });
+      messages.value.push(pending);
+
+      try {
+        const memoryPayload = {
+          session_id: sessionId.value,
+          use_memory: useMemory.value && canUseMemory.value,
+          context_window: Number(contextWindow.value),
+        };
+        const payload = {
+          question: text,
+          top_k: Number(topK.value),
+          query_mode: mode.value === "chat" ? (activeDocument.value ? "DOCUMENT" : "AUTO_DOCUMENT") : "OPEN_CHAT",
+          retrieval_mode: retrievalMode.value,
+          file_name: mode.value === "chat" && activeDocument.value ? activeDocument.value : "",
+          reasoning: reasoning.value,
+          ...memoryPayload,
+        };
+        const data = await submitRagRequest(mode.value, payload);
+
+        if (mode.value === "chat" || mode.value === "web" || mode.value === "agent") {
+          pending.text = data.answer || "没有返回答案。";
+          sources.value = data.sources || [];
+          agentTrace.value = data.tool_traces || data.trace || [];
+          routeInfo.route = data.route || "";
+          routeInfo.routeReason = data.route_reason || "";
+          routeInfo.answerSource = data.answer_source || "";
+          routeInfo.confidence = data.route_confidence ?? "";
+          routeInfo.router = data.route_router || "";
+        } else {
+          const previews = data.results
+            .map((item) => `[${item.index}] ${item.preview || item.content || ""}`)
+            .join("\n\n");
+          pending.text = `检索到 ${data.results.length} 条相关资料：\n\n${previews}`;
+          sources.value = data.results || [];
+          agentTrace.value = [];
+          resetRouteInfo();
+        }
+        question.value = "";
+      } catch (error) {
+        pending.text = renderError(error);
+        sources.value = [];
+        agentTrace.value = [];
+        resetRouteInfo();
+      } finally {
+        busy.value = false;
+      }
+    }
+
+    onMounted(loadInfo);
+
+    return {
+      mode,
+      topK,
+      queryMode,
+      retrievalMode,
+      activeDocument,
+      reasoning,
+      useMemory,
+      contextWindow,
+      canUseReasoning,
+      canUseMemory,
+      question,
+      busy,
+      selectedFile,
+      uploading,
+      rebuilding,
+      uploadStatus,
+      rebuildStatus,
+      selectedFileName,
+      info,
+      messages,
+      sources,
+      agentTrace,
+      routeInfo,
+      sendText,
+      modeHint,
+      actionLabel,
+      clearMemory,
+      selectDocument,
+      selectKnowledgeDocument,
+      uploadDocument,
+      rebuildKnowledgeBase,
+      setMode,
+      submitQuestion,
+    };
+  },
+  template: `
+    <main class="shell">
+      <TopBar :info="info" />
+
+      <section class="layout">
+        <WorkspacePanel
+          :mode="mode"
+          :top-k="topK"
+          :retrieval-mode="retrievalMode"
+          :active-document="activeDocument"
+          :info="info"
+          :reasoning="reasoning"
+          :use-memory="useMemory"
+          :context-window="contextWindow"
+          :can-use-reasoning="canUseReasoning"
+          :can-use-memory="canUseMemory"
+          :question="question"
+          :busy="busy"
+          :messages="messages"
+          :send-text="sendText"
+          :mode-hint="modeHint"
+          @change-mode="setMode"
+          @change-active-document="selectKnowledgeDocument"
+          @change-reasoning="reasoning = $event"
+          @change-memory="useMemory = $event"
+          @change-context-window="contextWindow = $event"
+          @change-top-k="topK = $event"
+          @change-retrieval-mode="retrievalMode = $event"
+          @change-question="question = $event"
+          @clear-memory="clearMemory"
+          @submit-question="submitQuestion"
+        />
+
+        <SourcePanel
+          :info="info"
+          :use-memory="useMemory"
+          :can-use-memory="canUseMemory"
+          :context-window="contextWindow"
+          :sources="sources"
+          :agent-trace="agentTrace"
+          :route-info="routeInfo"
+          :uploading="uploading"
+          :rebuilding="rebuilding"
+          :selected-file="selectedFile"
+          :selected-file-name="selectedFileName"
+          :active-document="activeDocument"
+          :upload-status="uploadStatus"
+          :rebuild-status="rebuildStatus"
+          :action-label="actionLabel"
+          @select-document="selectDocument"
+          @select-knowledge-document="selectKnowledgeDocument"
+          @upload-document="uploadDocument"
+          @rebuild-knowledge-base="rebuildKnowledgeBase"
+        />
+      </section>
+    </main>
+  `,
+};
