@@ -75,8 +75,15 @@ def db_health() -> dict[str, Any]:
     active = ""
     if connected:
         try:
-            service = get_rag_service()
-            active = (service.knowledge_base.info().get("active_version") or {}).get("name", "")
+            from sqlalchemy import select
+
+            from backend.db.models import IndexVersion
+
+            with engine.connect() as connection:
+                row = connection.execute(
+                    select(IndexVersion.name).where(IndexVersion.is_active.is_(True))
+                ).first()
+            active = row[0] if row else ""
         except Exception:  # noqa: BLE001
             active = ""
     return {"connected": connected, "detail": detail, "active_version": active}

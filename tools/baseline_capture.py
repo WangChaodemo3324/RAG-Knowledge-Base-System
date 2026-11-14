@@ -1,14 +1,16 @@
-"""Capture retrieval regression baseline against the CURRENT (Chroma) stack.
+"""Capture retrieval regression baseline against the CURRENT stack.
 
 Run inside the project's working environment:
-    .conda-py310/python.exe tools/baseline_capture.py
+    .conda-py310/python.exe tools/baseline_capture.py --label pgvector_v2
+    .conda-py310/python.exe tools/baseline_capture.py --compare tests/golden/baseline_retrieval.json
 
-Writes tests/golden/baseline_retrieval.json with per-case results and metric
+Writes tests/golden/<label>_retrieval.json with per-case results and metric
 summary for all four retrieval endpoints. No LLM calls are made.
 """
 
 from __future__ import annotations
 
+import argparse
 import json
 import sys
 import time
@@ -94,6 +96,16 @@ def evaluate(client: httpx.Client) -> dict:
 
 
 def main() -> None:
+    parser = argparse.ArgumentParser(description="Capture/compare retrieval regression metrics.")
+    parser.add_argument("--label", default="chroma_baseline", help="stack label used in the golden filename")
+    parser.add_argument(
+        "--compare",
+        type=Path,
+        default=None,
+        help="path to a previous golden file; prints per-endpoint deltas after capture",
+    )
+    args = parser.parse_args()
+
     started = time.perf_counter()
     with TestClient(app) as client:
         health = client.get("/health")
@@ -102,15 +114,15 @@ def main() -> None:
 
         report = {
             "captured_at": datetime.now(timezone.utc).isoformat(),
-            "stack": "chroma_baseline",
+            "stack": args.label,
             "app_info": {
                 "document_count": info.get("document_count"),
                 "parent_count": info.get("parent_count"),
                 "chunk_count": info.get("chunk_count"),
                 "vector_count": info.get("vector_count"),
-                "parent_store_count": info.get("parent_store_count"),
-                "child_store_count": info.get("child_store_count"),
-                "embedding_model": info.get("embedding_model"),
+                "active_version": (info.get("active_version") or {}).get("name", "")
+                if isinstance(info.get("active_version"), dict)
+                else "",
             },
             "results": evaluate(client),
         }
@@ -118,17 +130,45 @@ def main() -> None:
 
     out_dir = PROJECT_ROOT / "tests" / "golden"
     out_dir.mkdir(parents=True, exist_ok=True)
-    out_file = out_dir / "baseline_retrieval.json"
+    out_file = out_dir / f"{args.label}_retrieval.json"
     out_file.write_text(json.dumps(report, ensure_ascii=False, indent=2), encoding="utf-8")
 
     print(f"baseline saved: {out_file}")
-    print(f"app info: docs={report['app_info']['document_count']} parents={report['app_info']['parent_count']} chunks={report['app_info']['chunk_count']}")
+    print(
+        f"app info: docs={report['app_info']['document_count']} parents={report['app_info']['parent_count']}"
+        f" chunks={report['app_info']['chunk_count']} version={report['app_info']['active_version'] or '-'}"
+    )
     for name, data in report["results"]["endpoints"].items():
         metrics = data["metrics"]
         print(
             f"{name:8s} hit {metrics['hit_count']}/{metrics['total_cases']}"
             f" ({metrics['hit_rate']:.0%})  mean_rank={metrics['mean_best_rank_hits_only']}  {data['total_duration_ms']}ms"
         )
+
+    if args.compare:
+        compare_path = Path(args.compare)
+        if compare_path.exists():
+            previous = json.loads(compare_path.read_text(encoding="utf-8"))
+            print(f"\n== delta vs {compare_path.name} ({previous.get('stack')}) ==")
+            for name, data in report["results"]["endpoints"].items():
+                old = previous["results"]["endpoints"].get(name, {}).get("metrics", {})
+                now = data["metrics"]
+                print(
+                    f"{name:8s} hit {old.get('hit_count')}->{now['hit_count']}"
+                    f"  mean_rank {old.get('mean_best_rank_hits_only')}->{now['mean_best_rank_hits_only']}"
+                )
+            # per-case regression detection
+            for name, data in report["results"]["endpoints"].items():
+                old_cases = {
+                    case["question"]: case
+                    for case in previous["results"]["endpoints"].get(name, {}).get("cases", [])
+                }
+                for case in data["cases"]:
+                    old_case = old_cases.get(case["question"])
+                    if old_case and old_case["hit"] and not case["hit"]:
+                        print(f"REGRESSION [{name}] {case['question']} hit -> miss")
+        else:
+            print(f"compare file not found: {compare_path}")
 
 
 if __name__ == "__main__":

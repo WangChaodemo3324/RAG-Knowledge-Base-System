@@ -12,6 +12,7 @@ Replaces IndexService for writes:
 from __future__ import annotations
 
 import threading
+import uuid
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
@@ -90,7 +91,7 @@ class IndexPipeline:
 
     def _full_build_locked(self, reason: str) -> dict[str, Any]:
         started_at = datetime.now(timezone.utc)
-        version_name = f"v_{started_at.strftime('%Y%m%d%H%M%S')}"
+        version_name = f"v_{started_at.strftime('%Y%m%d%H%M%S')}_{uuid.uuid4().hex[:4]}"
         chunk_settings = self.processor.chunk_settings()
 
         with session_scope() as session:
@@ -174,6 +175,9 @@ class IndexPipeline:
 
     def _incremental_locked(self, file_path: Path, replace_existing: bool) -> dict[str, Any]:
         prepared = self._prepare_file(file_path)
+        # The task row, the old-chunk deletion and the new-chunk insertion all
+        # commit (or roll back) together: a crash leaves no stale task and the
+        # document keeps its previous chunks.
         with session_scope() as session:
             version = pg_store.require_active_version(session)
             task = pg_store.start_task(session, "incremental", version_id=version.id)
@@ -189,22 +193,17 @@ class IndexPipeline:
                     pg_store.finish_task(session, task.id, succeeded=True, message="unchanged, skipped")
                     return {"file_name": file_path.name, "status": "skipped"}
 
-            try:
-                record = pg_store.upsert_document(
-                    session,
-                    version_id=version.id,
-                    file_name=file_path.name,
-                    file_hash=prepared["fingerprint"]["file_hash"],
-                    file_size=prepared["fingerprint"]["file_size"],
-                    modified_at=prepared["fingerprint"]["modified_at"],
-                    document_count=prepared["document_count"],
-                )
-                pg_store.delete_document_chunks(session, record)
-                self._write_prepared(session, version.id, record, prepared)
-            except Exception:
-                # rollback leaves previous chunks intact; task row is committed
-                # as running only after the txn commits — mark it via a follow-up
-                raise
+            record = pg_store.upsert_document(
+                session,
+                version_id=version.id,
+                file_name=file_path.name,
+                file_hash=prepared["fingerprint"]["file_hash"],
+                file_size=prepared["fingerprint"]["file_size"],
+                modified_at=prepared["fingerprint"]["modified_at"],
+                document_count=prepared["document_count"],
+            )
+            pg_store.delete_document_chunks(session, record)
+            self._write_prepared(session, version.id, record, prepared)
             pg_store.finish_task(session, task.id, succeeded=True, message="incremental swap committed")
             stats = pg_store.version_stats(session, version.id)
             snapshot = pg_store.documents_snapshot(session, version.id)
