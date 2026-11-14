@@ -335,6 +335,7 @@ def load_children_for_bm25(session: Session, version_id: int) -> list[dict[str, 
         .join(DocumentRecord, ChildChunk.document_id == DocumentRecord.id)
         .where(ChildChunk.version_id == version_id)
     )
+    rows = session.execute(stmt).all()
     return [
         {
             "child_id": child.child_id,
@@ -343,7 +344,7 @@ def load_children_for_bm25(session: Session, version_id: int) -> list[dict[str, 
             "content": child.content,
             "metadata": dict(child.chunk_metadata or {}),
         }
-        for child, parent_id, file in stmt
+        for child, parent_id, file in rows
     ]
 
 

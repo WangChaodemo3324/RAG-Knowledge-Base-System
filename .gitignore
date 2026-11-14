@@ -14,3 +14,5 @@ parent_store.json
 child_store.json
 logs/
 route_logs.jsonl
+docker-compose.local.yml
+.spike-venv/

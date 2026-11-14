@@ -40,17 +40,16 @@
 
 ## 2. 存储选型评估：langchain-postgres vs 自定义适配层
 
-按迁移要求优先评估了 `langchain-postgres` 的 `PGVectorStore`，结论是**不采用**，改用 SQLAlchemy 2.0 + pgvector-python 自定义适配层（`backend/indexing/pg_store.py`）。评估证据分两部分：
+按迁移要求优先评估了 `langchain-postgres` 的 `PGVectorStore`，结论是**不采用**，改用 SQLAlchemy 2.0 + pgvector-python 自定义适配层（`backend/indexing/pg_store.py`）。以下六项均在实际 compose 数据库上实证（spike：`tools/evaluate_pgvectorstore.py`，隔离 venv）：
 
-**已实证的硬冲突**（安装期即触发）：
-1. **依赖矩阵冲突**：langchain-postgres 0.0.19 要求 `langchain-core>=1.2.11`，而本项目锁定 `langchain 0.3.x / langchain-core 0.3.83`（langchain-openai 0.3.35 明确要求 core<1.0.0）。装入即破坏运行环境——这意味着采用它必然等待 LangChain 全家桶大版本升级，超出本次迁移可控范围。
+1. **依赖硬冲突**：langchain-postgres 0.0.19 要求 `langchain-core>=1.2.11`，与项目 `langchain 0.3.x / langchain-openai 0.3.35`（要求 core<1.0.0）不兼容，pip 安装即报冲突——采用它必须等待 LangChain 全家桶大版本升级。
+2. **async-first 设计**：同步调用经内部事件循环桥接，Windows 默认 ProactorEventLoop 直接抛 `InterfaceError`，需全局改 SelectorEventLoopPolicy。
+3. **API 不稳定**：`create_sync` 签名与早期版本完全不同（collection_name → table_name + PGEngine 对象）；同步工厂路径在 0.0.19 实际不可用（校验先于建表），只能走 async API + 显式 `ainit_vectorstore_table`。
+4. **物理 schema 通用化**：单表仅 4 列（`langchain_id` UUID PK / `content` / `embedding` / `langchain_metadata`），**0 个外键**可达业务表——无法表达 `child→parent→document→version` 外键链与版本生命周期。
+5. **事务不可统一**：`add_texts` 无 session 参数，无法与调用方 SQLAlchemy 事务合流，违背统一事务要求。
+6. **ID 类型限制**：主键强制 UUID，任意字符串 id 直接报 `invalid input syntax for type uuid`。
 
-**结构性冲突**（spike 脚本 `tools/evaluate_pgvectorstore.py` 将在数据库可用后实测取证，写入 TEST_REPORT）：
-2. **schema 所有权**：PGVectorStore 使用自己的 `langchain_pg_embedding/collection` 表布局，无法表达 `child_chunks → parent_chunks → documents → index_versions` 的外键链和版本生命周期。
-3. **事务统一性**：其内部自管 engine/sessionmaker，无法保证"写入向量 + 更新版本/任务状态"发生在同一个调用方事务中——直接违背本次迁移的统一事务要求。
-4. **版本隔离方式**：只能靠 JSONB metadata 过滤实现版本限定，查询效率与约束强度都不如版本列 + FK + 索引。
-
-自定义适配层的对价：检索查询、批量写入、校验逻辑需要自己维护（约 400 行，全部有集成测试覆盖）。作为补偿，`BgeM3OnnxEmbeddings` 继续实现 LangChain `Embeddings` 接口，未来若需要可低成本换回 LangChain 检索器生态。
+自定义适配层的对价：检索查询、批量写入、校验逻辑需自行维护（约 400 行，全部有集成测试覆盖）。作为补偿，`BgeM3OnnxEmbeddings` 继续实现 LangChain `Embeddings` 接口，未来若需要可低成本换回 LangChain 检索器生态。
 
 ## 3. 版本化索引管线（蓝绿）
 

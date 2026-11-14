@@ -1,0 +1,692 @@
+{
+  "captured_at": "2026-11-14T18:02:19.441735+00:00",
+  "stack": "pgvector_v2",
+  "app_info": {
+    "document_count": 7,
+    "parent_count": 30,
+    "chunk_count": 139,
+    "vector_count": 139,
+    "active_version": "v_20261114180105_c6c3"
+  },
+  "results": {
+    "endpoints": {
+      "vector": {
+        "path": "/search",
+        "top_k": 5,
+        "cases": [
+          {
+            "question": "生产环境发布失败后如何回滚？",
+            "expected_source": "生产环境发布与回滚操作规范",
+            "hit": true,
+            "best_rank": 1,
+            "returned": 5,
+            "top3_sources": [
+              "生产环境发布与回滚操作规范.md",
+              "生产环境发布与回滚操作规范.md",
+              "生产环境发布与回滚操作规范.md"
+            ]
+          },
+          {
+            "question": "生产环境发布前需要做哪些检查？",
+            "expected_source": "生产环境发布与回滚操作规范",
+            "hit": true,
+            "best_rank": 2,
+            "returned": 5,
+            "top3_sources": [
+              "星联智服全渠道客服平台上线与运营管理手册.md",
+              "生产环境发布与回滚操作规范.md",
+              "生产环境发布与回滚操作规范.md"
+            ]
+          },
+          {
+            "question": "核心业务系统故障时的应急响应流程是什么？",
+            "expected_source": "核心业务系统故障应急响应预案",
+            "hit": true,
+            "best_rank": 1,
+            "returned": 5,
+            "top3_sources": [
+              "核心业务系统故障应急响应预案.md",
+              "核心业务系统故障应急响应预案.md",
+              "核心业务系统故障应急响应预案.md"
+            ]
+          },
+          {
+            "question": "故障发生后应该通知哪些角色？",
+            "expected_source": "核心业务系统故障应急响应预案",
+            "hit": true,
+            "best_rank": 1,
+            "returned": 5,
+            "top3_sources": [
+              "核心业务系统故障应急响应预案.md",
+              "澄星智能新员工入职培训手册.md",
+              "核心业务系统故障应急响应预案.md"
+            ]
+          },
+          {
+            "question": "核心业务系统故障时应该怎么响应？",
+            "expected_source": "核心业务系统故障应急响应预案",
+            "hit": true,
+            "best_rank": 1,
+            "returned": 5,
+            "top3_sources": [
+              "核心业务系统故障应急响应预案.md",
+              "核心业务系统故障应急响应预案.md",
+              "澄星智能新员工入职培训手册.md"
+            ]
+          },
+          {
+            "question": "差旅报销需要提交哪些材料？",
+            "expected_source": "差旅与费用报销管理办法",
+            "hit": true,
+            "best_rank": 1,
+            "returned": 4,
+            "top3_sources": [
+              "差旅与费用报销管理办法.md",
+              "差旅与费用报销管理办法.md",
+              "差旅与费用报销管理办法.md"
+            ]
+          },
+          {
+            "question": "差旅报销需要哪些材料？",
+            "expected_source": "差旅与费用报销管理办法",
+            "hit": true,
+            "best_rank": 1,
+            "returned": 4,
+            "top3_sources": [
+              "差旅与费用报销管理办法.md",
+              "差旅与费用报销管理办法.md",
+              "差旅与费用报销管理办法.md"
+            ]
+          },
+          {
+            "question": "差旅费用报销审批流程是什么？",
+            "expected_source": "差旅与费用报销管理办法",
+            "hit": true,
+            "best_rank": 1,
+            "returned": 4,
+            "top3_sources": [
+              "差旅与费用报销管理办法.md",
+              "差旅与费用报销管理办法.md",
+              "差旅与费用报销管理办法.md"
+            ]
+          },
+          {
+            "question": "客户数据访问控制有哪些分级？",
+            "expected_source": "客户数据分级与访问控制管理制度",
+            "hit": true,
+            "best_rank": 1,
+            "returned": 5,
+            "top3_sources": [
+              "客户数据分级与访问控制管理制度.md",
+              "星联智服全渠道客服平台上线与运营管理手册.md",
+              "客户数据分级与访问控制管理制度.md"
+            ]
+          },
+          {
+            "question": "新员工入职培训包括哪些内容？",
+            "expected_source": "澄星智能新员工入职培训手册",
+            "hit": true,
+            "best_rank": 1,
+            "returned": 5,
+            "top3_sources": [
+              "澄星智能新员工入职培训手册.md",
+              "澄星智能新员工入职培训手册.md",
+              "澄星智能新员工入职培训手册.md"
+            ]
+          },
+          {
+            "question": "客服平台上线后的运营流程是什么？",
+            "expected_source": "星联智服全渠道客服平台上线与运营管理手册",
+            "hit": true,
+            "best_rank": 1,
+            "returned": 5,
+            "top3_sources": [
+              "星联智服全渠道客服平台上线与运营管理手册.md",
+              "星联智服全渠道客服平台上线与运营管理手册.md",
+              "星联智服全渠道客服平台上线与运营管理手册.md"
+            ]
+          },
+          {
+            "question": "PARENT-CHILD 切块配置原则是什么？",
+            "expected_source": "星联智服全渠道客服平台上线与运营管理手册",
+            "hit": true,
+            "best_rank": 1,
+            "returned": 5,
+            "top3_sources": [
+              "星联智服全渠道客服平台上线与运营管理手册.md",
+              "星联智服全渠道客服平台上线与运营管理手册.md",
+              "星联智服全渠道客服平台上线与运营管理手册.md"
+            ]
+          },
+          {
+            "question": "XX-200 智能网关有哪些主要功能？",
+            "expected_source": "XX-200智能网关产品手册",
+            "hit": true,
+            "best_rank": 1,
+            "returned": 5,
+            "top3_sources": [
+              "XX-200智能网关产品手册.pdf",
+              "XX-200智能网关产品手册.pdf",
+              "XX-200智能网关产品手册.pdf"
+            ]
+          }
+        ],
+        "metrics": {
+          "hit_count": 13,
+          "total_cases": 13,
+          "hit_rate": 1.0,
+          "mean_best_rank_hits_only": 1.0769
+        },
+        "total_duration_ms": 934
+      },
+      "keyword": {
+        "path": "/keyword-search",
+        "top_k": 5,
+        "cases": [
+          {
+            "question": "生产环境发布失败后如何回滚？",
+            "expected_source": "生产环境发布与回滚操作规范",
+            "hit": true,
+            "best_rank": 2,
+            "returned": 5,
+            "top3_sources": [
+              "星联智服全渠道客服平台上线与运营管理手册.md",
+              "生产环境发布与回滚操作规范.md",
+              "生产环境发布与回滚操作规范.md"
+            ]
+          },
+          {
+            "question": "生产环境发布前需要做哪些检查？",
+            "expected_source": "生产环境发布与回滚操作规范",
+            "hit": true,
+            "best_rank": 2,
+            "returned": 5,
+            "top3_sources": [
+              "星联智服全渠道客服平台上线与运营管理手册.md",
+              "生产环境发布与回滚操作规范.md",
+              "客户数据分级与访问控制管理制度.md"
+            ]
+          },
+          {
+            "question": "核心业务系统故障时的应急响应流程是什么？",
+            "expected_source": "核心业务系统故障应急响应预案",
+            "hit": true,
+            "best_rank": 1,
+            "returned": 5,
+            "top3_sources": [
+              "核心业务系统故障应急响应预案.md",
+              "星联智服全渠道客服平台上线与运营管理手册.md",
+              "生产环境发布与回滚操作规范.md"
+            ]
+          },
+          {
+            "question": "故障发生后应该通知哪些角色？",
+            "expected_source": "核心业务系统故障应急响应预案",
+            "hit": true,
+            "best_rank": 5,
+            "returned": 5,
+            "top3_sources": [
+              "星联智服全渠道客服平台上线与运营管理手册.md",
+              "差旅与费用报销管理办法.md",
+              "星联智服全渠道客服平台上线与运营管理手册.md"
+            ]
+          },
+          {
+            "question": "核心业务系统故障时应该怎么响应？",
+            "expected_source": "核心业务系统故障应急响应预案",
+            "hit": true,
+            "best_rank": 1,
+            "returned": 5,
+            "top3_sources": [
+              "核心业务系统故障应急响应预案.md",
+              "生产环境发布与回滚操作规范.md",
+              "星联智服全渠道客服平台上线与运营管理手册.md"
+            ]
+          },
+          {
+            "question": "差旅报销需要提交哪些材料？",
+            "expected_source": "差旅与费用报销管理办法",
+            "hit": true,
+            "best_rank": 1,
+            "returned": 5,
+            "top3_sources": [
+              "差旅与费用报销管理办法.md",
+              "星联智服全渠道客服平台上线与运营管理手册.md",
+              "差旅与费用报销管理办法.md"
+            ]
+          },
+          {
+            "question": "差旅报销需要哪些材料？",
+            "expected_source": "差旅与费用报销管理办法",
+            "hit": true,
+            "best_rank": 1,
+            "returned": 5,
+            "top3_sources": [
+              "差旅与费用报销管理办法.md",
+              "星联智服全渠道客服平台上线与运营管理手册.md",
+              "差旅与费用报销管理办法.md"
+            ]
+          },
+          {
+            "question": "差旅费用报销审批流程是什么？",
+            "expected_source": "差旅与费用报销管理办法",
+            "hit": true,
+            "best_rank": 3,
+            "returned": 5,
+            "top3_sources": [
+              "星联智服全渠道客服平台上线与运营管理手册.md",
+              "星联智服全渠道客服平台上线与运营管理手册.md",
+              "差旅与费用报销管理办法.md"
+            ]
+          },
+          {
+            "question": "客户数据访问控制有哪些分级？",
+            "expected_source": "客户数据分级与访问控制管理制度",
+            "hit": true,
+            "best_rank": 2,
+            "returned": 5,
+            "top3_sources": [
+              "星联智服全渠道客服平台上线与运营管理手册.md",
+              "客户数据分级与访问控制管理制度.md",
+              "星联智服全渠道客服平台上线与运营管理手册.md"
+            ]
+          },
+          {
+            "question": "新员工入职培训包括哪些内容？",
+            "expected_source": "澄星智能新员工入职培训手册",
+            "hit": true,
+            "best_rank": 1,
+            "returned": 5,
+            "top3_sources": [
+              "澄星智能新员工入职培训手册.md",
+              "澄星智能新员工入职培训手册.md",
+              "澄星智能新员工入职培训手册.md"
+            ]
+          },
+          {
+            "question": "客服平台上线后的运营流程是什么？",
+            "expected_source": "星联智服全渠道客服平台上线与运营管理手册",
+            "hit": true,
+            "best_rank": 1,
+            "returned": 5,
+            "top3_sources": [
+              "星联智服全渠道客服平台上线与运营管理手册.md",
+              "星联智服全渠道客服平台上线与运营管理手册.md",
+              "星联智服全渠道客服平台上线与运营管理手册.md"
+            ]
+          },
+          {
+            "question": "PARENT-CHILD 切块配置原则是什么？",
+            "expected_source": "星联智服全渠道客服平台上线与运营管理手册",
+            "hit": true,
+            "best_rank": 1,
+            "returned": 5,
+            "top3_sources": [
+              "星联智服全渠道客服平台上线与运营管理手册.md",
+              "星联智服全渠道客服平台上线与运营管理手册.md",
+              "星联智服全渠道客服平台上线与运营管理手册.md"
+            ]
+          },
+          {
+            "question": "XX-200 智能网关有哪些主要功能？",
+            "expected_source": "XX-200智能网关产品手册",
+            "hit": true,
+            "best_rank": 1,
+            "returned": 5,
+            "top3_sources": [
+              "XX-200智能网关产品手册.pdf",
+              "XX-200智能网关产品手册.pdf",
+              "XX-200智能网关产品手册.pdf"
+            ]
+          }
+        ],
+        "metrics": {
+          "hit_count": 13,
+          "total_cases": 13,
+          "hit_rate": 1.0,
+          "mean_best_rank_hits_only": 1.6923
+        },
+        "total_duration_ms": 121
+      },
+      "hybrid": {
+        "path": "/hybrid-search",
+        "top_k": 10,
+        "cases": [
+          {
+            "question": "生产环境发布失败后如何回滚？",
+            "expected_source": "生产环境发布与回滚操作规范",
+            "hit": true,
+            "best_rank": 1,
+            "returned": 10,
+            "top3_sources": [
+              "生产环境发布与回滚操作规范.md",
+              "生产环境发布与回滚操作规范.md",
+              "星联智服全渠道客服平台上线与运营管理手册.md"
+            ]
+          },
+          {
+            "question": "生产环境发布前需要做哪些检查？",
+            "expected_source": "生产环境发布与回滚操作规范",
+            "hit": true,
+            "best_rank": 2,
+            "returned": 10,
+            "top3_sources": [
+              "星联智服全渠道客服平台上线与运营管理手册.md",
+              "生产环境发布与回滚操作规范.md",
+              "星联智服全渠道客服平台上线与运营管理手册.md"
+            ]
+          },
+          {
+            "question": "核心业务系统故障时的应急响应流程是什么？",
+            "expected_source": "核心业务系统故障应急响应预案",
+            "hit": true,
+            "best_rank": 1,
+            "returned": 10,
+            "top3_sources": [
+              "核心业务系统故障应急响应预案.md",
+              "客户数据分级与访问控制管理制度.md",
+              "核心业务系统故障应急响应预案.md"
+            ]
+          },
+          {
+            "question": "故障发生后应该通知哪些角色？",
+            "expected_source": "核心业务系统故障应急响应预案",
+            "hit": true,
+            "best_rank": 1,
+            "returned": 10,
+            "top3_sources": [
+              "核心业务系统故障应急响应预案.md",
+              "核心业务系统故障应急响应预案.md",
+              "星联智服全渠道客服平台上线与运营管理手册.md"
+            ]
+          },
+          {
+            "question": "核心业务系统故障时应该怎么响应？",
+            "expected_source": "核心业务系统故障应急响应预案",
+            "hit": true,
+            "best_rank": 1,
+            "returned": 10,
+            "top3_sources": [
+              "核心业务系统故障应急响应预案.md",
+              "核心业务系统故障应急响应预案.md",
+              "核心业务系统故障应急响应预案.md"
+            ]
+          },
+          {
+            "question": "差旅报销需要提交哪些材料？",
+            "expected_source": "差旅与费用报销管理办法",
+            "hit": true,
+            "best_rank": 1,
+            "returned": 10,
+            "top3_sources": [
+              "差旅与费用报销管理办法.md",
+              "差旅与费用报销管理办法.md",
+              "差旅与费用报销管理办法.md"
+            ]
+          },
+          {
+            "question": "差旅报销需要哪些材料？",
+            "expected_source": "差旅与费用报销管理办法",
+            "hit": true,
+            "best_rank": 1,
+            "returned": 10,
+            "top3_sources": [
+              "差旅与费用报销管理办法.md",
+              "差旅与费用报销管理办法.md",
+              "差旅与费用报销管理办法.md"
+            ]
+          },
+          {
+            "question": "差旅费用报销审批流程是什么？",
+            "expected_source": "差旅与费用报销管理办法",
+            "hit": true,
+            "best_rank": 1,
+            "returned": 10,
+            "top3_sources": [
+              "差旅与费用报销管理办法.md",
+              "差旅与费用报销管理办法.md",
+              "差旅与费用报销管理办法.md"
+            ]
+          },
+          {
+            "question": "客户数据访问控制有哪些分级？",
+            "expected_source": "客户数据分级与访问控制管理制度",
+            "hit": true,
+            "best_rank": 1,
+            "returned": 10,
+            "top3_sources": [
+              "客户数据分级与访问控制管理制度.md",
+              "客户数据分级与访问控制管理制度.md",
+              "星联智服全渠道客服平台上线与运营管理手册.md"
+            ]
+          },
+          {
+            "question": "新员工入职培训包括哪些内容？",
+            "expected_source": "澄星智能新员工入职培训手册",
+            "hit": true,
+            "best_rank": 1,
+            "returned": 10,
+            "top3_sources": [
+              "澄星智能新员工入职培训手册.md",
+              "澄星智能新员工入职培训手册.md",
+              "澄星智能新员工入职培训手册.md"
+            ]
+          },
+          {
+            "question": "客服平台上线后的运营流程是什么？",
+            "expected_source": "星联智服全渠道客服平台上线与运营管理手册",
+            "hit": true,
+            "best_rank": 1,
+            "returned": 10,
+            "top3_sources": [
+              "星联智服全渠道客服平台上线与运营管理手册.md",
+              "星联智服全渠道客服平台上线与运营管理手册.md",
+              "星联智服全渠道客服平台上线与运营管理手册.md"
+            ]
+          },
+          {
+            "question": "PARENT-CHILD 切块配置原则是什么？",
+            "expected_source": "星联智服全渠道客服平台上线与运营管理手册",
+            "hit": true,
+            "best_rank": 1,
+            "returned": 10,
+            "top3_sources": [
+              "星联智服全渠道客服平台上线与运营管理手册.md",
+              "星联智服全渠道客服平台上线与运营管理手册.md",
+              "星联智服全渠道客服平台上线与运营管理手册.md"
+            ]
+          },
+          {
+            "question": "XX-200 智能网关有哪些主要功能？",
+            "expected_source": "XX-200智能网关产品手册",
+            "hit": true,
+            "best_rank": 1,
+            "returned": 10,
+            "top3_sources": [
+              "XX-200智能网关产品手册.pdf",
+              "XX-200智能网关产品手册.pdf",
+              "XX-200智能网关产品手册.pdf"
+            ]
+          }
+        ],
+        "metrics": {
+          "hit_count": 13,
+          "total_cases": 13,
+          "hit_rate": 1.0,
+          "mean_best_rank_hits_only": 1.0769
+        },
+        "total_duration_ms": 1012
+      },
+      "rerank": {
+        "path": "/rerank-search",
+        "top_k": 5,
+        "cases": [
+          {
+            "question": "生产环境发布失败后如何回滚？",
+            "expected_source": "生产环境发布与回滚操作规范",
+            "hit": true,
+            "best_rank": 1,
+            "returned": 5,
+            "top3_sources": [
+              "生产环境发布与回滚操作规范.md",
+              "生产环境发布与回滚操作规范.md",
+              "星联智服全渠道客服平台上线与运营管理手册.md"
+            ]
+          },
+          {
+            "question": "生产环境发布前需要做哪些检查？",
+            "expected_source": "生产环境发布与回滚操作规范",
+            "hit": true,
+            "best_rank": 2,
+            "returned": 5,
+            "top3_sources": [
+              "星联智服全渠道客服平台上线与运营管理手册.md",
+              "生产环境发布与回滚操作规范.md",
+              "生产环境发布与回滚操作规范.md"
+            ]
+          },
+          {
+            "question": "核心业务系统故障时的应急响应流程是什么？",
+            "expected_source": "核心业务系统故障应急响应预案",
+            "hit": true,
+            "best_rank": 1,
+            "returned": 5,
+            "top3_sources": [
+              "核心业务系统故障应急响应预案.md",
+              "核心业务系统故障应急响应预案.md",
+              "客户数据分级与访问控制管理制度.md"
+            ]
+          },
+          {
+            "question": "故障发生后应该通知哪些角色？",
+            "expected_source": "核心业务系统故障应急响应预案",
+            "hit": true,
+            "best_rank": 1,
+            "returned": 5,
+            "top3_sources": [
+              "核心业务系统故障应急响应预案.md",
+              "核心业务系统故障应急响应预案.md",
+              "核心业务系统故障应急响应预案.md"
+            ]
+          },
+          {
+            "question": "核心业务系统故障时应该怎么响应？",
+            "expected_source": "核心业务系统故障应急响应预案",
+            "hit": true,
+            "best_rank": 1,
+            "returned": 5,
+            "top3_sources": [
+              "核心业务系统故障应急响应预案.md",
+              "核心业务系统故障应急响应预案.md",
+              "核心业务系统故障应急响应预案.md"
+            ]
+          },
+          {
+            "question": "差旅报销需要提交哪些材料？",
+            "expected_source": "差旅与费用报销管理办法",
+            "hit": true,
+            "best_rank": 1,
+            "returned": 5,
+            "top3_sources": [
+              "差旅与费用报销管理办法.md",
+              "差旅与费用报销管理办法.md",
+              "差旅与费用报销管理办法.md"
+            ]
+          },
+          {
+            "question": "差旅报销需要哪些材料？",
+            "expected_source": "差旅与费用报销管理办法",
+            "hit": true,
+            "best_rank": 1,
+            "returned": 5,
+            "top3_sources": [
+              "差旅与费用报销管理办法.md",
+              "差旅与费用报销管理办法.md",
+              "差旅与费用报销管理办法.md"
+            ]
+          },
+          {
+            "question": "差旅费用报销审批流程是什么？",
+            "expected_source": "差旅与费用报销管理办法",
+            "hit": true,
+            "best_rank": 1,
+            "returned": 5,
+            "top3_sources": [
+              "差旅与费用报销管理办法.md",
+              "差旅与费用报销管理办法.md",
+              "差旅与费用报销管理办法.md"
+            ]
+          },
+          {
+            "question": "客户数据访问控制有哪些分级？",
+            "expected_source": "客户数据分级与访问控制管理制度",
+            "hit": true,
+            "best_rank": 1,
+            "returned": 5,
+            "top3_sources": [
+              "客户数据分级与访问控制管理制度.md",
+              "客户数据分级与访问控制管理制度.md",
+              "星联智服全渠道客服平台上线与运营管理手册.md"
+            ]
+          },
+          {
+            "question": "新员工入职培训包括哪些内容？",
+            "expected_source": "澄星智能新员工入职培训手册",
+            "hit": true,
+            "best_rank": 1,
+            "returned": 5,
+            "top3_sources": [
+              "澄星智能新员工入职培训手册.md",
+              "澄星智能新员工入职培训手册.md",
+              "澄星智能新员工入职培训手册.md"
+            ]
+          },
+          {
+            "question": "客服平台上线后的运营流程是什么？",
+            "expected_source": "星联智服全渠道客服平台上线与运营管理手册",
+            "hit": true,
+            "best_rank": 1,
+            "returned": 5,
+            "top3_sources": [
+              "星联智服全渠道客服平台上线与运营管理手册.md",
+              "星联智服全渠道客服平台上线与运营管理手册.md",
+              "星联智服全渠道客服平台上线与运营管理手册.md"
+            ]
+          },
+          {
+            "question": "PARENT-CHILD 切块配置原则是什么？",
+            "expected_source": "星联智服全渠道客服平台上线与运营管理手册",
+            "hit": true,
+            "best_rank": 1,
+            "returned": 5,
+            "top3_sources": [
+              "星联智服全渠道客服平台上线与运营管理手册.md",
+              "星联智服全渠道客服平台上线与运营管理手册.md",
+              "星联智服全渠道客服平台上线与运营管理手册.md"
+            ]
+          },
+          {
+            "question": "XX-200 智能网关有哪些主要功能？",
+            "expected_source": "XX-200智能网关产品手册",
+            "hit": true,
+            "best_rank": 1,
+            "returned": 5,
+            "top3_sources": [
+              "XX-200智能网关产品手册.pdf",
+              "XX-200智能网关产品手册.pdf",
+              "XX-200智能网关产品手册.pdf"
+            ]
+          }
+        ],
+        "metrics": {
+          "hit_count": 13,
+          "total_cases": 13,
+          "hit_rate": 1.0,
+          "mean_best_rank_hits_only": 1.0769
+        },
+        "total_duration_ms": 39277
+      }
+    }
+  },
+  "capture_duration_ms": 120929
+}

@@ -43,12 +43,10 @@ def version(db_session):
     # FK order: children/parents/documents CASCADE on version delete;
     # index_tasks.version_id is SET NULL, so tasks referencing this version
     # lose the FK and must be removed by matching the orphaned rows first.
-    db_session.execute(
-        text("DELETE FROM index_tasks WHERE version_id IS NULL AND task_type LIKE 'test%' AND created_at > now() - interval '1 hour'")
-    )
-    db_session.execute(text("DELETE FROM child_chunks WHERE version_id = :vid"), {"vid": version.id})
-    db_session.execute(text("DELETE FROM parent_chunks WHERE version_id = :vid"), {"vid": version.id})
-    db_session.execute(text("DELETE FROM documents WHERE version_id = :vid"), {"vid": version.id})
+    # Tests may create extra versions (v2 in fault-injection scenarios) — wipe
+    # every test-prefixed version; real data versions start with "v_".
+    db_session.execute(text("DELETE FROM index_tasks WHERE version_id IS NULL AND task_type LIKE 'test%' AND created_at > now() - interval '1 hour'"))
+    db_session.execute(text("DELETE FROM index_versions WHERE name LIKE 'test_%'"))
     db_session.execute(text("DELETE FROM index_tasks WHERE version_id = :vid"), {"vid": version.id})
     db_session.execute(text("DELETE FROM index_versions WHERE id = :vid"), {"vid": version.id})
     db_session.flush()
@@ -263,6 +261,7 @@ class TestFaultInjection:
         """A crash mid-swap must leave the document readable from its previous chunks."""
         write_one_document(db_session, version)
         pg_store.activate_version(db_session, version.id)
+        db_session.commit()  # make setup visible to other sessions (READ COMMITTED)
         before = pg_store.search_children(db_session, version.id, make_vec(1), top_k=5)
         assert len(before) == 2
 
