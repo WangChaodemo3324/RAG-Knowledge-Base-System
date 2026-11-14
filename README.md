@@ -53,6 +53,8 @@ uvicorn api:app --port 8012
 
 ## 主要 API
 
+流式问答：`POST /chat/stream`（SSE，事件流 sources→token→done，前端自动回退非流式）。历史版本清理：`POST /index/prune`（管理端点，保留最近 N 个 retired 版本）。
+
 | 端点 | 说明 |
 | --- | --- |
 | `POST /chat` | 知识库问答（支持文档/自动/开放三种模式） |

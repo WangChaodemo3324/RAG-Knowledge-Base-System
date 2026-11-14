@@ -14,7 +14,6 @@ from sqlalchemy import text
 
 from backend.core.auth import require_admin
 from backend.core.logging import configure_logging, get_logger, request_id_var
-from backend.core.config import ADMIN_API_KEY
 from backend.db import engine
 from backend.indexing.pg_store import VersionError
 from backend.schemas import ChatRequest, HybridSearchRequest, MemoryClearRequest, RerankSearchRequest, SearchRequest

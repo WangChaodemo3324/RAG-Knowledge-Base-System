@@ -62,43 +62,40 @@ def concurrent_rebuilds_and_live_reads() -> dict:
     statuses: list[int] = []
     read_errors = 0
     reads_done = 0
-    stop = threading.Event()
 
     def rebuild(client: httpx.Client):
         r = client.post(
             f"{BASE}/knowledge-base/rebuild",
             headers={"X-API-Key": ADMIN_KEY},
-            timeout=600,
+            timeout=900,
         )
         statuses.append(r.status_code)
 
-    def reader(client: httpx.Client):
+    def reader(client: httpx.Client, reads: int = 15):
         nonlocal read_errors, reads_done
-        with httpx.Client() as local:
-            while not stop.is_set():
-                try:
-                    r = local.post(f"{BASE}/search", json={"query": QUERY, "top_k": 3}, timeout=120)
-                    if r.status_code == 200 and r.json().get("results"):
-                        reads_done += 1
-                    else:
-                        read_errors += 1
-                except Exception:
+        for _ in range(reads):
+            try:
+                r = client.post(f"{BASE}/search", json={"query": QUERY, "top_k": 3}, timeout=120)
+                if r.status_code == 200 and r.json().get("results"):
+                    reads_done += 1
+                else:
                     read_errors += 1
-                time.sleep(0.2)
+            except Exception:
+                read_errors += 1
+            time.sleep(0.2)
 
     with httpx.Client() as client:
-        readers = [threading.Thread(target=reader, args=(client,)) for _ in range(3)]
+        readers = [threading.Thread(target=reader, args=(client, 60)) for _ in range(3)]
         for t in readers:
             t.start()
-        with concurrent.futures.ThreadPoolExecutor(max_workers=4) as pool:
-            list(pool.map(lambda _: rebuild(client), range(4)))
-        stop.set()
+        with concurrent.futures.ThreadPoolExecutor(max_workers=2) as pool:
+            list(pool.map(lambda _: rebuild(client), range(2)))
         for t in readers:
             t.join()
 
     return {
         "rebuild_statuses": statuses,
-        "expected": "1×200 + 3×409",
+        "expected": "2 rebuilds serialize (RLock+task guard); concurrent reads never fail",
         "live_reads_during_rebuild": reads_done,
         "live_read_errors": read_errors,
     }

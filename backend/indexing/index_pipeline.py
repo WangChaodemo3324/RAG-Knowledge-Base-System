@@ -18,7 +18,6 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Callable, Iterator
 
-from sqlalchemy import text as sql_text
 from sqlalchemy.orm import Session
 
 from backend.db import session_scope

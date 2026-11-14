@@ -13,7 +13,7 @@ from __future__ import annotations
 
 import uuid
 from datetime import datetime, timezone
-from typing import Any, Iterable, Sequence
+from typing import Any, Sequence
 
 from sqlalchemy import delete, func, select, update
 from sqlalchemy.orm import Session
