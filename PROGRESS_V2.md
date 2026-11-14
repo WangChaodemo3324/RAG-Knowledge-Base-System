@@ -23,3 +23,9 @@
 - 集成测试改为每用例独立 rag_test_<uuid> 数据库（真实迁移+即弃），故障注入永不触碰正式库
 - 排查并修复 3 个环境/代码问题：①alembic env.py 无条件覆盖 sqlalchemy.url → 测试 URL 失效；②SQLAlchemy str(url) 密码渲染为 *** → 字符串化 URL 建引擎认证必败（改用 URL 对象 + render_as_string(hide_password=False)）；③本机 WSL relay 占用 [::1]:5433 → 测试/配置强制 127.0.0.1
 - 正式库完好性验证：1 active 版本 / 139 子块，与第一阶段一致
+
+## 追记（模块 5 完成）
+
+- 蓝绿故障注入 10 场景全过：PDF 解析失败降级（6/7 文件仍激活）、嵌入服务全挂拒绝空版本替换旧版、PG 写失败回滚保持旧块、激活失败保留原 active、切换前崩溃恢复（孤儿任务+building 标失败）、切换后崩溃（新 active 存活）、同文档并发更新序列化+去重、多进程语义 advisory 冲突、BM25 版本快照一致性、重复重建零重复
+- 修复真 P1：full_build 全部文件失败时拒绝激活空版本（原来可通过校验并顶掉好版本）
+- 管线注入 session_factory，测试可指向 rag_test
