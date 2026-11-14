@@ -11,7 +11,7 @@
 | P1-1 | **async 端点阻塞事件循环**：`POST /documents/upload` 是 `async def`，但增量入库（嵌入 139 块 ≈ 分钟级 CPU + DB 写）是同步调用，阻塞期间整个服务无响应 | main.py:104 → rag_service.upload_document → pipeline | 已修复：入库移入线程池 |
 | P1-2 | **AUTO 模式双重检索**：`auto_chat` 先 `retrieve_sources` 做证据判断，`qa_service.chat` 内部再检索一次——每次问答 2× embedding+RRF+rerank | chat/orchestrator.py:159,165；qa_service.chat | 已修复：检索结果透传 |
 | P1-3 | **父块展开 N+1 查询**：`expand_children_to_parents` 对每个候选逐条 SELECT | pg_store.py | 已修复：单查询 IN 批量取回 |
-| P1-4 | **evidence_checker 阈值 0.45 未校准**：bge-reranker-base 输出无界 logits，阈值形同虚设（routing 几乎必判"证据充分"） | routing/evidence_checker.py:11 | 已修复：实验校准（见 PERFORMANCE_REPORT §3） |
+| P1-4 | **evidence_checker 阈值 0.45 未校准**：bge-reranker-base 输出无界 logits，阈值形同虚设（routing 几乎必判"证据充分"） | routing/evidence_checker.py:11 | 已校准为 0.25（真实分布实验）。**勘误**：V1 对该问题的机制描述有误——实测 0.45 能正确拒绝离题查询（负样本 max 0.082），真正的问题是余量过薄（距最弱正样本仅 0.012）。详见 PERFORMANCE_REPORT §2 |
 | P1-5 | **词表路由过拟合**：COMPANY_DOMAIN_WORDS 硬编码 'xx-200'、'客服平台' 等当前语料词，换语料即退化 | routing/feature_extractor.py | 已缓解：建路由评测集实测后调整（§路由评测） |
 | P1-6 | **`/chat` 系端点 400 detail 直传 RuntimeError 文本**：可控范围内（均为项目自身消息），但 VersionError 等若经此路径会带内部细节 | main.py chat 系端点 | 已修复：白名单化 |
 

@@ -52,3 +52,15 @@
 - evidence_checker 的 rerank_score 阈值 0.45 未校准（历史问题，随 v2.1 校准）
 - 词表路由过拟合当前语料（历史问题）
 - `tools/test_*.py` 三个旧手工脚本引用已删除的 /info 字段，将由回归测试工具替代
+
+## V2.0 深度优化（2026-11-15，feature/pgvector-migration 后续 12 commits）
+
+二次审计（SECOND_REVIEW）与全链路验证：
+- 修复并发初始化竞态（get_rag_service 双检锁）、恢复机制误杀活跃构建（任务心跳 + 孤儿检测）、upload 阻塞事件循环、auto_chat 双重检索、父块展开 N+1
+- 迁移 0002：metadata/settings 列 json → jsonb（模型契约对齐，迁移测试抓出）
+- 蓝绿故障注入 10+2 场景全过；嵌入全挂时拒绝激活空版本（新防护）
+- RAG 质量：rerank 阈值校准 0.45→0.25（真实分布实验）；路由评测 48/48；检索指标四端点 HitRate 100%
+- SSE 流式：/chat/stream + 前端流式/兜底 + 断连落盘部分答案（真实 DeepSeek 冒烟 567 tokens）
+- Docker：备份/恢复脚本实测、重启持久化验证、deploy-check、镜像漂移文档化、日志轮转
+- 并发压测：20 并发检索 0 错误、重建期 180 读取 0 失败（tests/golden/stress_perf.json）
+- 测试总量 64/64（单元 35 / 集成 29，含迁移与 SSE）；新增 SECOND_REVIEW/PERFORMANCE_REPORT/SECURITY_AUDIT/DATABASE_BACKUP/INTERVIEW_GUIDE/DEVELOPMENT_DECISIONS/FINAL_ENGINEERING_REPORT
