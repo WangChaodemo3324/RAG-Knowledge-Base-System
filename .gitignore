@@ -16,3 +16,4 @@ logs/
 route_logs.jsonl
 docker-compose.local.yml
 .spike-venv/
+backups/
