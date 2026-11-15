@@ -10,6 +10,24 @@ from fastapi.testclient import TestClient
 from backend.main import app
 
 
+@pytest.fixture(autouse=True)
+def fake_embedding_for_ci(monkeypatch):
+    """CI 无 BGE-M3 缓存：嵌入走确定性假向量（模型边界已由单元测试覆盖）。"""
+
+    class _FakeEmbedding:
+        model_name = "fake-embed"
+
+        def embed_documents(self, texts):
+            return [[0.1] * 1024 for _ in texts]
+
+        def embed_query(self, text):
+            return [0.1] * 1024
+
+    monkeypatch.setattr("backend.indexing.embedding_provider.get_embedding", lambda: _FakeEmbedding())
+    monkeypatch.setattr("backend.knowledge.knowledge_base.get_embedding", lambda: _FakeEmbedding())
+
+
+
 def _md_file(name: str, content: str):
     return ("files", (name, io.BytesIO(content.encode("utf-8")), "text/markdown"))
 
