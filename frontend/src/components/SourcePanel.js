@@ -10,6 +10,11 @@ export default {
     routeInfo: { type: Object, required: true },
     uploading: { type: Boolean, required: true },
     rebuilding: { type: Boolean, required: true },
+    documents: { type: Array, default: () => [] },
+    documentsLoading: { type: Boolean, default: false },
+    documentsError: { type: String, default: "" },
+    docBusyName: { type: String, default: "" },
+    docStatus: { type: Object, default: () => ({ text: "", kind: "" }) },
     selectedFile: { type: Object, default: null },
     selectedFileName: { type: String, required: true },
     activeDocument: { type: String, default: "" },
@@ -17,7 +22,7 @@ export default {
     rebuildStatus: { type: Object, required: true },
     actionLabel: { type: Function, required: true },
   },
-  emits: ["select-document", "select-knowledge-document", "upload-document", "rebuild-knowledge-base"],
+  emits: ["select-document", "select-knowledge-document", "upload-document", "rebuild-knowledge-base", "delete-document", "retry-document"],
   watch: {
     selectedFile(value) {
       if (!value && this.$refs.uploadInput) {
@@ -50,7 +55,7 @@ export default {
             <strong>{{ info.dataFiles.length }} 个文档 / {{ info.chunkCount }} 个文本块</strong>
           </div>
 
-          <input ref="uploadInput" class="upload-input" type="file" accept=".pdf,.md,.txt" @change="selectDocument" />
+          <input ref="uploadInput" class="upload-input" type="file" accept=".pdf,.md,.txt" multiple @change="selectDocument" />
           <div class="upload-actions">
             <button class="upload-pick" type="button" :disabled="uploading || rebuilding" @click="openUploadPicker">上传文档</button>
             <button class="rebuild-submit" type="button" :disabled="uploading || rebuilding" @click="$emit('rebuild-knowledge-base')">
@@ -74,8 +79,12 @@ export default {
             当前范围：<strong>{{ activeDocument || '自动选择文档' }}</strong>
           </div>
           <details class="document-switcher">
-            <summary>切换文档</summary>
-            <div class="file-list">
+            <summary>文档管理（{{ documents.length }}）</summary>
+            <div v-if="docStatus.text" :class="['upload-status', docStatus.kind]">{{ docStatus.text }}</div>
+            <div v-if="documentsLoading" class="doc-empty">加载中...</div>
+            <div v-else-if="documentsError" class="doc-empty doc-error">{{ documentsError }}</div>
+            <div v-else-if="!documents.length" class="doc-empty">暂无文档。上传 PDF/MD/TXT 开始构建知识库。</div>
+            <div v-else class="doc-list">
               <button
                 type="button"
                 :class="{ active: !activeDocument }"
@@ -83,15 +92,32 @@ export default {
               >
                 自动选择文档
               </button>
-              <button
-                v-for="file in info.dataFiles"
-                :key="file"
-                type="button"
-                :class="{ active: file === activeDocument }"
-                @click="$emit('select-knowledge-document', file)"
+              <div
+                v-for="doc in documents"
+                :key="doc.file_name"
+                :class="['doc-row', { active: doc.file_name === activeDocument, failed: doc.status === 'failed' }]"
               >
-                {{ file }}
-              </button>
+                <button type="button" class="doc-name" @click="$emit('select-knowledge-document', doc.file_name)">
+                  {{ doc.file_name }}
+                </button>
+                <span :class="['doc-badge', doc.status]">{{ doc.status === 'failed' ? '失败' : '已索引' }}</span>
+                <span class="doc-chunks">{{ doc.chunk_count }} 块</span>
+                <span v-if="!doc.source_file_exists" class="doc-badge missing">源缺失</span>
+                <span class="doc-actions">
+                  <button
+                    v-if="doc.status === 'failed' || !doc.source_file_exists"
+                    type="button" class="doc-btn" title="重新入库"
+                    :disabled="docBusyName === doc.file_name"
+                    @click="$emit('retry-document', doc.file_name)"
+                  >重试</button>
+                  <button
+                    type="button" class="doc-btn danger" title="删除文档"
+                    :disabled="docBusyName === doc.file_name"
+                    @click="$emit('delete-document', doc.file_name)"
+                  >删除</button>
+                </span>
+                <small v-if="doc.error" class="doc-error-line">{{ doc.error }}</small>
+              </div>
             </div>
           </details>
         </div>

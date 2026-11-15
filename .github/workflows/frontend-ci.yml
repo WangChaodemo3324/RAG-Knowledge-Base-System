@@ -1,0 +1,26 @@
+name: frontend-ci
+
+on:
+  pull_request:
+    paths: ["frontend/**", ".github/workflows/frontend-ci.yml"]
+  push:
+    branches: [main]
+    paths: ["frontend/**", ".github/workflows/frontend-ci.yml"]
+
+jobs:
+  syntax-check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+      - name: JS syntax check (vanilla ES modules, no build step)
+        run: |
+          for f in frontend/src/*.js frontend/src/components/*.js; do
+            node --check "$f"
+          done
+      - name: Guard — Vue must be vendored locally (no CDN dependency)
+        run: |
+          test -f frontend/src/vendor/vue.esm-browser.prod.js
+          ! grep -q "unpkg.com" frontend/src/main.js

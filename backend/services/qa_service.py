@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import logging
 from datetime import date
 from typing import Any
 
@@ -10,6 +11,8 @@ from backend.knowledge.knowledge_base import KnowledgeBase
 from backend.knowledge.source_utils import source_content
 from backend.services.memory_store import ShortTermMemory
 from backend.tools.web_search_tool import WebSearchTool
+
+logger = logging.getLogger(__name__)
 
 
 class QAService:
@@ -83,17 +86,23 @@ class QAService:
         use_memory: bool = True,
         context_window: int = 4,
         file_name: str = "",
+        precomputed_sources: list[dict[str, Any]] | None = None,
     ) -> dict[str, Any]:
         self._ensure_api_key()
 
         history = self.memory.format_history(session_id, context_window) if use_memory else ""
         search_query = f"{history}\n当前问题：{question}" if history else question
-        sources = self._retrieve_sources(
-            search_query,
-            top_k=top_k,
-            retrieval_mode=retrieval_mode,
-            file_name=file_name,
-        )
+        if precomputed_sources is not None:
+            # orchestrator already retrieved (evidence check) — reuse instead of
+            # running embedding + RRF + rerank a second time
+            sources = precomputed_sources
+        else:
+            sources = self._retrieve_sources(
+                search_query,
+                top_k=top_k,
+                retrieval_mode=retrieval_mode,
+                file_name=file_name,
+            )
         context = "\n\n".join(f"[{source['index']}] {source['content']}" for source in sources)
         llm = build_llm(self.config, reasoning=reasoning, timeout=90 if reasoning else 60)
         reasoning_instruction = (
@@ -131,6 +140,95 @@ class QAService:
             "memory_turns": self.memory.count(session_id),
             "sources": sources,
         }
+
+    def chat_stream(
+        self,
+        question: str,
+        top_k: int = 4,
+        retrieval_mode: str = "hybrid_rerank",
+        reasoning: bool = False,
+        session_id: str = "default",
+        use_memory: bool = True,
+        context_window: int = 4,
+        file_name: str = "",
+        precomputed_sources: list[dict[str, Any]] | None = None,
+    ):
+        """SSE-ready generator for knowledge-base chat.
+
+        Yields dicts: {"type": "sources"|"token"|"done"|"error", ...}.
+        Memory is written in a finally block so client disconnects (GeneratorExit)
+        still record the partial answer — no background task leakage.
+        """
+        self._ensure_api_key()
+
+        history = self.memory.format_history(session_id, context_window) if use_memory else ""
+        search_query = f"{history}\n当前问题：{question}" if history else question
+        if precomputed_sources is not None:
+            sources = precomputed_sources
+        else:
+            sources = self._retrieve_sources(
+                search_query,
+                top_k=top_k,
+                retrieval_mode=retrieval_mode,
+                file_name=file_name,
+            )
+        context = "\n\n".join(f"[{source['index']}] {source['content']}" for source in sources)
+        llm = build_llm(self.config, reasoning=reasoning, timeout=90 if reasoning else 60)
+        reasoning_instruction = (
+            "请先在内部检查资料是否足以支持结论，不要输出思考过程；最终答案要明确结论、依据和资料不足处。"
+            if reasoning
+            else ""
+        )
+
+        yield {"type": "sources", "sources": sources, "model": self.config["model"], "file_name": file_name}
+
+        collected: list[str] = []
+        completed = False
+        client_closed = False
+        error_detail = ""
+        try:
+            response = llm.stream(
+                [
+                    SystemMessage(
+                        content=(
+                            "你是一个严谨的知识库问答助手。"
+                            "请只根据给定资料回答，并在关键结论后用 [编号] 标注来源；如果资料不足，请明确说明资料中没有找到答案。"
+                            "历史对话只用于理解代词、上下文和用户意图，不能当作事实来源。"
+                            f"{reasoning_instruction}"
+                        )
+                    ),
+                    HumanMessage(content=f"{history}\n\n资料：\n{context}\n\n当前问题：{question}"),
+                ]
+            )
+            for chunk in response:
+                token = str(chunk.content or "")
+                if token:
+                    collected.append(token)
+                    yield {"type": "token", "text": token}
+            completed = True
+        except GeneratorExit:
+            # client disconnected — record partial answer in finally, do NOT yield
+            client_closed = True
+            raise
+        except Exception as exc:
+            logger.warning("chat_stream generation failed: %s", exc)
+            error_detail = "模型生成中断，请稍后重试"
+        finally:
+            answer = "".join(collected)
+            if not completed and answer:
+                answer += "\n\n（连接中断，以上为已生成的部分内容）"
+            if use_memory and answer:
+                self.memory.add_turn(session_id, question, answer, "chat" if completed else "chat_interrupted")
+            if not client_closed:
+                if error_detail:
+                    yield {"type": "error", "detail": error_detail}
+                yield {
+                    "type": "done",
+                    "completed": completed,
+                    "answer": answer,
+                    "memory_turns": self.memory.count(session_id),
+                    "sources_count": len(sources),
+                }
 
     def web_search(self, query: str, top_k: int = 4) -> list[dict[str, Any]]:
         return self.web_search_tool.run(query, max_results=top_k, fetch_pages=False)

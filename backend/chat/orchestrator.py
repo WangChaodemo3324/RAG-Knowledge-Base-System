@@ -170,6 +170,7 @@ class ChatOrchestrator:
                 session_id,
                 use_memory,
                 context_window,
+                precomputed_sources=kb_results,
             )
             self._decorate_route(result, route_info, trace)
             return result

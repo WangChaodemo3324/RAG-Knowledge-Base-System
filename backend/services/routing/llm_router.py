@@ -6,7 +6,14 @@ from langchain_core.messages import HumanMessage, SystemMessage
 
 from backend.core.llm_client import build_llm
 from backend.knowledge.source_utils import parse_json_object
-from backend.services.routing.route_schema import CLARIFY, DIRECT_LLM, KB_ONLY, WEB_ONLY, QueryFeatures, RouteDecision
+from backend.services.routing.route_schema import (
+    CLARIFY,
+    DIRECT_LLM,
+    KB_ONLY,
+    WEB_ONLY,
+    QueryFeatures,
+    RouteDecision,
+)
 
 
 class LLMRouter:

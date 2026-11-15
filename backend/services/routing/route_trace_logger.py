@@ -6,7 +6,11 @@ from pathlib import Path
 from typing import Any
 
 from backend.core.config import BASE_DIR
-from backend.services.routing.route_schema import EvidenceDecision, QueryFeatures, RouteDecision
+from backend.services.routing.route_schema import (
+    EvidenceDecision,
+    QueryFeatures,
+    RouteDecision,
+)
 
 
 class RouteTraceLogger:

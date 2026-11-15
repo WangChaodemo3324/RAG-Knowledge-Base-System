@@ -1,9 +1,7 @@
 from __future__ import annotations
 
-import ast
 import os
 from pathlib import Path
-
 
 BASE_DIR = Path(__file__).resolve().parents[2]
 
@@ -27,11 +25,13 @@ def _load_env_file() -> None:
 _load_env_file()
 
 DATA_DIR = Path(os.getenv("RAG_DATA_DIR", str(BASE_DIR / "resource data")))
-CHROMA_DIR = Path(os.getenv("RAG_CHROMA_DIR", str(BASE_DIR / "chroma_db")))
-MANIFEST_FILE = Path(os.getenv("RAG_MANIFEST_FILE", str(BASE_DIR / "manifest.json")))
-PARENT_STORE_FILE = Path(os.getenv("RAG_PARENT_STORE_FILE", str(BASE_DIR / "parent_store.json")))
-CHILD_STORE_FILE = Path(os.getenv("RAG_CHILD_STORE_FILE", str(BASE_DIR / "child_store.json")))
-CHROMA_COLLECTION_NAME = os.getenv("RAG_CHROMA_COLLECTION_NAME", "rag_documents")
+DATABASE_URL = os.getenv("RAG_DATABASE_URL", "postgresql+psycopg://rag:rag@127.0.0.1:5433/rag")
+DB_POOL_SIZE = int(os.getenv("RAG_DB_POOL_SIZE", "5"))
+DB_MAX_OVERFLOW = int(os.getenv("RAG_DB_MAX_OVERFLOW", "5"))
+DB_POOL_RECYCLE_SECONDS = int(os.getenv("RAG_DB_POOL_RECYCLE_SECONDS", "1800"))
+ADMIN_API_KEY = os.getenv("RAG_ADMIN_API_KEY", "").strip()
+# comma-separated origin allowlist; unset keeps the local-dev wildcard
+CORS_ORIGINS = [origin.strip() for origin in os.getenv("RAG_CORS_ORIGINS", "").split(",") if origin.strip()]
 SUPPORTED_DOCUMENT_EXTENSIONS = {".pdf", ".md", ".txt"}
 FALLBACK_DATA_FILE = BASE_DIR / "resource data" / "生产环境发布与回滚操作规范.md"
 CHUNK_SIZE = int(os.getenv("RAG_CHUNK_SIZE", "700"))
@@ -58,33 +58,14 @@ WEB_SEARCH_TAVILY_MAX_RETRIES = int(os.getenv("WEB_SEARCH_TAVILY_MAX_RETRIES", "
 WEB_SEARCH_REQUIRE_TAVILY = os.getenv("WEB_SEARCH_REQUIRE_TAVILY", "false").strip().lower() == "true"
 
 
-def _load_code_config() -> dict[str, str]:
-    """Read optional DeepSeek constants from rag.py without executing it."""
-    config: dict[str, str] = {}
-    rag_file = BASE_DIR / "legacy" / "rag.py"
-    if not rag_file.exists():
-        return config
-
-    try:
-        tree = ast.parse(rag_file.read_text(encoding="utf-8"))
-    except Exception:
-        return config
-
-    wanted = {"DEEPSEEK_API_KEY", "DEEPSEEK_BASE_URL", "DEEPSEEK_MODEL"}
-    for node in tree.body:
-        if not isinstance(node, ast.Assign) or len(node.targets) != 1:
-            continue
-        target = node.targets[0]
-        if isinstance(target, ast.Name) and target.id in wanted and isinstance(node.value, ast.Constant):
-            if isinstance(node.value.value, str):
-                config[target.id] = node.value.value
-    return config
-
-
 def get_deepseek_config() -> dict[str, str]:
-    code_config = _load_code_config()
+    """DeepSeek configuration comes exclusively from the environment.
+
+    The Phase-1 AST fallback that parsed constants out of legacy/rag.py was
+    removed: a dead file must never be able to influence production config.
+    """
     return {
-        "api_key": os.getenv("DEEPSEEK_API_KEY") or code_config.get("DEEPSEEK_API_KEY", ""),
-        "base_url": os.getenv("DEEPSEEK_BASE_URL") or code_config.get("DEEPSEEK_BASE_URL", "https://api.deepseek.com"),
-        "model": os.getenv("DEEPSEEK_MODEL") or code_config.get("DEEPSEEK_MODEL", "deepseek-v4-flash"),
+        "api_key": os.getenv("DEEPSEEK_API_KEY", ""),
+        "base_url": os.getenv("DEEPSEEK_BASE_URL", "https://api.deepseek.com"),
+        "model": os.getenv("DEEPSEEK_MODEL", "deepseek-v4-flash"),
     }

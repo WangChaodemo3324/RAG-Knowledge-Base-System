@@ -1,0 +1,23 @@
+# Ruff 配置：目标 Python 3.10（本地环境），CI 同版本
+target-version = "py310"
+line-length = 140
+
+[lint]
+select = ["E", "F", "W", "I", "UP", "B", "SIM", "RUF"]
+ignore = [
+    "BLE001",   # 边界处刻意捕获宽泛异常（resilience boundaries 已有日志）
+    "B008",     # FastAPI 惯用法：File(...)/Depends(...) 写在参数默认值
+    "S110",     # try-except-pass：明确的 best-effort 清理路径
+    "RUF012",   # mutable class default：FastAPI/Pydantic 场景常见
+    "RUF001",   # 中文全角标点为有意内容，非混淆字符
+    "RUF002",   # 同上（文档字符串）
+    "RUF003",   # 同上（注释）
+    "B905",     # zip 严格模式对当前数据形状无影响
+    "RUF005",   # 列表拼接风格保留可读的 current + [unit] 写法
+    "E501",     # 行长由 line-length 统一约束
+]
+
+[lint.per-file-ignores]
+"tests/*" = ["B011", "SIM117"]
+"tools/*" = ["T201", "E402"]  # 脚本允许 print；tools 需先注入 sys.path 再 import backend
+"backend/main.py" = ["E402"]  # 静态资源挂载在 app 创建后进行

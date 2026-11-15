@@ -1,0 +1,26 @@
+{
+  "retrieval": {
+    "requests": 20,
+    "workers": 8,
+    "errors": 0,
+    "p50_ms": 1559,
+    "p95_ms": 20246,
+    "max_ms": 20246
+  },
+  "rebuilds": {
+    "rebuild_statuses": [
+      200,
+      200
+    ],
+    "expected": "2 rebuilds serialize (RLock+task guard); concurrent reads never fail",
+    "live_reads_during_rebuild": 180,
+    "live_read_errors": 0
+  },
+  "embedding": {
+    "model_load_s": 3.6,
+    "texts": 139,
+    "vector_dim": 1024,
+    "total_s": 63.7,
+    "texts_per_sec": 2.2
+  }
+}

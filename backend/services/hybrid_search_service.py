@@ -35,24 +35,10 @@ class HybridSearchService:
         return results
 
     def _vector_candidates(self, query: str, top_k: int, file_name: str = "") -> list[dict[str, Any]]:
-        docs = self.knowledge_base.search_children(query, top_k, file_name=file_name)
-        candidates: list[dict[str, Any]] = []
-        for rank, doc in enumerate(docs, start=1):
-            metadata = dict(getattr(doc, "metadata", {}) or {})
-            content = getattr(doc, "page_content", "")
-            candidates.append(
-                {
-                    "rank": rank,
-                    "retrieval_level": "child",
-                    "child_id": metadata.get("chunk_id", ""),
-                    "parent_id": metadata.get("parent_id", ""),
-                    "file_name": metadata.get("file_name", ""),
-                    "source": metadata.get("file_name", ""),
-                    "content": content,
-                    "preview": content[:220],
-                    "metadata": metadata,
-                }
-            )
+        """KnowledgeBase.search_children now returns pgvector candidate dicts directly."""
+        candidates = self.knowledge_base.search_children(query, top_k, file_name=file_name)
+        for rank, candidate in enumerate(candidates, start=1):
+            candidate["rank"] = rank
         return candidates
 
     def _add_ranked_candidates(
