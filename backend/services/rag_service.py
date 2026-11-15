@@ -228,7 +228,7 @@ class RagService:
                         "message": "上传成功，已增量入库。" if status == "indexed" else "内容未变化，已跳过。",
                     }
                 )
-            except Exception as exc:  # noqa: BLE001 — per-file isolation
+            except Exception as exc:
                 entry.update({"status": "failed", "error": str(exc)})
             results.append(entry)
 
@@ -267,7 +267,7 @@ class RagService:
         try:
             listing = self.list_documents()
             info["data_files"] = [d["file_name"] for d in listing["documents"]]
-        except Exception:  # noqa: BLE001 — 数据库暂时不可用时保持旧值
+        except Exception:
             pass
         info.update(
             {
