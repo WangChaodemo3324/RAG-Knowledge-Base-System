@@ -91,6 +91,22 @@ export async function uploadDocumentFile(file) {
   return data;
 }
 
+export async function uploadDocumentsBatch(files) {
+  const formData = new FormData();
+  for (const file of files) {
+    formData.append("files", file);
+  }
+  const response = await fetch("/documents/upload-batch", {
+    method: "POST",
+    body: formData,
+  });
+  const data = await response.json().catch(() => ({}));
+  if (!response.ok) {
+    throw new Error(data.detail || `批量上传失败：${response.status}`);
+  }
+  return data;
+}
+
 export async function rebuildKnowledgeBaseIndex() {
   const response = await fetch("/knowledge-base/rebuild", { method: "POST" });
   const data = await response.json();

@@ -12,7 +12,7 @@ from backend.chat.orchestrator import ChatOrchestrator
 from backend.core.config import DATA_DIR, get_deepseek_config
 from backend.knowledge.knowledge_base import KnowledgeBase
 from backend.services.agent_service import ReactAgentService
-from backend.services.document_service import save_uploaded_document
+from backend.services.document_service import save_uploaded_document, save_uploaded_document_batch
 from backend.services.hybrid_search_service import HybridSearchService
 from backend.services.keyword_search_service import KeywordSearchService
 from backend.services.memory_store import ShortTermMemory
@@ -201,6 +201,44 @@ class RagService:
             "parent_count": stats.get("parent_count", 0),
             "chunk_count": stats.get("chunk_count", 0),
             "data_files": [item["file_name"] for item in result.get("indexed", [])],
+        }
+
+    async def upload_documents_batch(self, files: list[Any]) -> dict[str, Any]:
+        """Batch upload: save all files first, then index each successfully
+        saved one; per-file failures are reported without aborting the rest."""
+        saved_list = await save_uploaded_document_batch(files, self.knowledge_base.data_dir)
+        results: list[dict[str, Any]] = []
+        for saved in saved_list:
+            entry = {"filename": saved.get("filename", "unknown")}
+            if "error" in saved:
+                entry.update({"status": "rejected", "error": saved["error"]})
+                results.append(entry)
+                continue
+            try:
+                result = await run_in_threadpool(
+                    self.knowledge_base.add_file,
+                    Path(saved["saved_to"]),
+                    saved["overwritten"],
+                )
+                status = result.get("status", "indexed")
+                entry.update(
+                    {
+                        "status": status,
+                        "chunk_count": result.get("chunk_count", 0),
+                        "message": "上传成功，已增量入库。" if status == "indexed" else "内容未变化，已跳过。",
+                    }
+                )
+            except Exception as exc:  # noqa: BLE001 — per-file isolation
+                entry.update({"status": "failed", "error": str(exc)})
+            results.append(entry)
+
+        indexed = sum(1 for r in results if r["status"] == "indexed")
+        skipped = sum(1 for r in results if r["status"] == "skipped")
+        failed = sum(1 for r in results if r["status"] in {"failed", "rejected"})
+        return {
+            "results": results,
+            "summary": {"indexed": indexed, "skipped": skipped, "failed": failed},
+            "total": len(results),
         }
 
     def list_documents(self) -> dict[str, Any]:

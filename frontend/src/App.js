@@ -4,6 +4,7 @@ import {
   clearMemory as clearMemoryRequest,
   deleteDocument as deleteDocumentRequest,
   fetchDocuments,
+  uploadDocumentsBatch,
   fetchInfo,
   rebuildKnowledgeBaseIndex,
   renderError,
@@ -11,7 +12,7 @@ import {
   submitRagRequest,
   submitRagStream,
   uploadDocumentFile,
-} from "./api.js?v=20261115-4";
+} from "./api.js?v=20261115-6";
 import SourcePanel from "./components/SourcePanel.js?v=20261115-5";
 import TopBar from "./components/TopBar.js?v=20260604-1";
 import WorkspacePanel from "./components/WorkspacePanel.js?v=20260604-1";
@@ -145,10 +146,26 @@ export default {
       rebuildStatus.kind = "";
 
       try {
-        const data = await uploadDocumentFile(selectedFile.value);
-        uploadStatus.text = `${data.filename} 已增量入库`;
-        uploadStatus.kind = "success";
-        addMessage("system", `${data.filename} 上传成功，已增量入库，现在可以参与检索问答。`);
+        const files = Array.from(selectedFile.value instanceof File ? [selectedFile.value] : selectedFile.value);
+        if (files.length > 1) {
+          const data = await uploadDocumentsBatch(files);
+          const s = data.summary;
+          uploadStatus.text = `批量完成：${s.indexed} 成功 / ${s.skipped} 跳过 / ${s.failed} 失败`;
+          uploadStatus.kind = s.failed ? "error" : "success";
+          const failedNames = data.results.filter((r) => r.error).map((r) => `${r.filename}：${r.error}`);
+          if (failedNames.length) {
+            addMessage("system", `批量上传部分失败：
+${failedNames.join("
+")}`);
+          } else {
+            addMessage("system", `批量上传完成：${s.indexed} 个文档已入库。`);
+          }
+        } else {
+          const data = await uploadDocumentFile(files[0] || selectedFile.value);
+          uploadStatus.text = `${data.filename} 已增量入库`;
+          uploadStatus.kind = "success";
+          addMessage("system", `${data.filename} 上传成功，已增量入库，现在可以参与检索问答。`);
+        }
         selectedFile.value = null;
         await Promise.all([loadDocuments(), loadInfo({ resetMessage: false })]);
       } catch (error) {

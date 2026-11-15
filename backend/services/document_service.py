@@ -34,6 +34,25 @@ def safe_upload_filename(filename: str | None) -> str:
     return name
 
 
+async def save_uploaded_document_batch(
+    files: list[UploadFile], data_dir: Path = DATA_DIR
+) -> list[dict[str, Any]]:
+    """Save each file independently; per-file failures do not abort the batch."""
+    saved: list[dict[str, Any]] = []
+    for file in files:
+        try:
+            saved.append(await save_uploaded_document(file, data_dir))
+        except DocumentUploadError as exc:
+            saved.append(
+                {
+                    "filename": file.filename or "unknown",
+                    "error": exc.message,
+                    "status_code": exc.status_code,
+                }
+            )
+    return saved
+
+
 async def save_uploaded_document(file: UploadFile, data_dir: Path = DATA_DIR) -> dict[str, Any]:
     filename = safe_upload_filename(file.filename)
     data_dir.mkdir(parents=True, exist_ok=True)

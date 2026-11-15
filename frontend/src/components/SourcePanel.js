@@ -55,7 +55,7 @@ export default {
             <strong>{{ info.dataFiles.length }} 个文档 / {{ info.chunkCount }} 个文本块</strong>
           </div>
 
-          <input ref="uploadInput" class="upload-input" type="file" accept=".pdf,.md,.txt" @change="selectDocument" />
+          <input ref="uploadInput" class="upload-input" type="file" accept=".pdf,.md,.txt" multiple @change="selectDocument" />
           <div class="upload-actions">
             <button class="upload-pick" type="button" :disabled="uploading || rebuilding" @click="openUploadPicker">上传文档</button>
             <button class="rebuild-submit" type="button" :disabled="uploading || rebuilding" @click="$emit('rebuild-knowledge-base')">
