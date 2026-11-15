@@ -15,6 +15,7 @@ from sqlalchemy import text
 from backend.core.auth import require_admin
 from backend.core.logging import configure_logging, get_logger, request_id_var
 from backend.db import engine
+from backend.indexing.index_pipeline import DocumentNotFoundError
 from backend.indexing.pg_store import VersionError
 from backend.schemas import ChatRequest, HybridSearchRequest, MemoryClearRequest, RerankSearchRequest, SearchRequest
 from backend.services.document_service import DocumentUploadError
@@ -121,6 +122,7 @@ def health() -> dict[str, Any]:
             "/info",
             "/index/versions",
             "/index/prune",
+            "/documents",
             "/documents/upload",
             "/knowledge-base/rebuild",
             "/search",
@@ -134,6 +136,41 @@ def health() -> dict[str, Any]:
             "/memory/clear",
         ],
     }
+
+
+@app.get("/documents")
+def list_documents() -> dict[str, Any]:
+    return get_rag_service().list_documents()
+
+
+@app.delete("/documents/{file_name}", dependencies=[Depends(require_admin)])
+def delete_document(file_name: str) -> dict[str, Any]:
+    """Remove a document from the active index; its source file is moved to
+    `<data_dir>/.trash/` (recoverable) and all index rows are deleted in one
+    transaction. BM25 rebuilds automatically via the version signature."""
+    try:
+        return get_rag_service().delete_document(file_name)
+    except DocumentNotFoundError as exc:
+        raise HTTPException(status_code=404, detail=str(exc)) from exc
+    except VersionError as exc:
+        raise HTTPException(status_code=409, detail=str(exc)) from exc
+    except Exception as exc:
+        logger.exception("document delete failed")
+        raise HTTPException(status_code=500, detail="文档删除失败") from exc
+
+
+@app.post("/documents/{file_name}/retry", dependencies=[Depends(require_admin)])
+def retry_document(file_name: str) -> dict[str, Any]:
+    """Re-index a previously failed (or stale) document from its source file."""
+    try:
+        return get_rag_service().retry_document(file_name)
+    except DocumentNotFoundError as exc:
+        raise HTTPException(status_code=404, detail=str(exc)) from exc
+    except VersionError as exc:
+        raise HTTPException(status_code=409, detail=str(exc)) from exc
+    except Exception as exc:
+        logger.exception("document retry failed")
+        raise HTTPException(status_code=500, detail="文档重试失败") from exc
 
 
 @app.post("/index/prune", dependencies=[Depends(require_admin)])

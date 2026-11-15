@@ -204,6 +204,15 @@ class RagService:
             "data_files": [item["file_name"] for item in result.get("indexed", [])],
         }
 
+    def list_documents(self) -> dict[str, Any]:
+        return self.knowledge_base.pipeline.list_documents()
+
+    def delete_document(self, file_name: str) -> dict[str, Any]:
+        return self.knowledge_base.pipeline.delete_document(file_name)
+
+    def retry_document(self, file_name: str) -> dict[str, Any]:
+        return self.knowledge_base.pipeline.retry_document(file_name)
+
     def prune_retired_versions(self, keep: int = 2) -> dict[str, Any]:
         from backend.db import session_scope
         from backend.indexing import pg_store

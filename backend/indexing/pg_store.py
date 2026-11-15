@@ -13,6 +13,7 @@ from __future__ import annotations
 
 import uuid
 from datetime import datetime, timezone
+from pathlib import Path
 from typing import Any, Sequence
 
 from sqlalchemy import delete, func, select, update
@@ -546,3 +547,68 @@ def documents_snapshot(session: Session, version_id: int) -> dict[str, dict[str,
         }
         for record in records
     }
+
+
+def list_documents(
+    session: Session,
+    version_id: int,
+    data_dir: Path | None = None,
+) -> list[dict[str, Any]]:
+    """Document inventory for the active version, with source-file presence."""
+    records = session.execute(
+        select(DocumentRecord).where(DocumentRecord.version_id == version_id)
+    ).scalars().all()
+    items: list[dict[str, Any]] = []
+    for record in sorted(records, key=lambda r: r.file_name):
+        source_exists = False
+        if data_dir is not None:
+            source_exists = (data_dir / record.file_name).is_file()
+        items.append(
+            {
+                "file_name": record.file_name,
+                "status": record.status,
+                "document_count": record.document_count,
+                "parent_count": record.parent_count,
+                "chunk_count": record.chunk_count,
+                "file_hash_short": record.file_hash[:12],
+                "file_size": record.file_size,
+                "modified_at": record.modified_at,
+                "indexed_at": record.indexed_at.isoformat() if record.indexed_at else "",
+                "error": record.error,
+                "source_file_exists": source_exists,
+            }
+        )
+    return items
+
+
+def delete_document(session: Session, version_id: int, file_name: str) -> bool:
+    """Remove a document and ALL its index data (children/parents cascade from
+    the document row) inside the caller's transaction. BM25 invalidates itself
+    via the (version_id, child_count) signature.
+
+    The source file is NOT touched here — the pipeline moves it to a trash
+    directory so the operation stays recoverable.
+    """
+    record = get_document(session, version_id, file_name)
+    if record is None:
+        return False
+    session.delete(record)  # ON DELETE CASCADE removes parent/child chunks
+    session.flush()
+    return True
+
+
+def get_failed_documents(session: Session, version_id: int) -> list[dict[str, Any]]:
+    records = session.execute(
+        select(DocumentRecord).where(
+            DocumentRecord.version_id == version_id,
+            DocumentRecord.status == "failed",
+        )
+    ).scalars().all()
+    return [
+        {
+            "file_name": record.file_name,
+            "error": record.error,
+            "indexed_at": record.indexed_at.isoformat() if record.indexed_at else "",
+        }
+        for record in records
+    ]

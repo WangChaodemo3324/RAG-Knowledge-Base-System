@@ -35,6 +35,10 @@ class IndexPipelineError(RuntimeError):
     pass
 
 
+class DocumentNotFoundError(IndexPipelineError):
+    pass
+
+
 class IndexPipeline:
     def __init__(
         self,
@@ -93,6 +97,63 @@ class IndexPipeline:
                 "stats": stats,
                 "versions": pg_store.list_versions(session),
             }
+
+    # ------------------------------------------------------------------
+    # Document lifecycle (V3)
+    # ------------------------------------------------------------------
+
+    def list_documents(self) -> dict[str, Any]:
+        """Inventory of the active version with source-file presence."""
+        with self._session() as session:
+            active = pg_store.get_active_version(session)
+            if active is None:
+                return {"documents": [], "active_version": None}
+            documents = pg_store.list_documents(session, active.id, data_dir=self.processor.data_dir)
+            overview = {"active_version": {"id": active.id, "name": active.name}}
+        return {"documents": documents, **overview}
+
+    def delete_document(self, file_name: str) -> dict[str, Any]:
+        """Remove a document from the active index AND move its source file to
+        `<data_dir>/.trash/` — one transaction for all index rows; the source
+        file move is recoverable and never silently destroyed.
+
+        BM25 rebuilds itself on the next search via the version signature.
+        """
+        with _INDEX_LOCK:
+            trash_dir = self.processor.data_dir / ".trash"
+            trash_dir.mkdir(parents=True, exist_ok=True)
+            source_path = self.processor.data_dir / file_name
+
+            with self._session() as session:
+                version = pg_store.require_active_version(session)
+                task = pg_store.start_task(session, "delete_document", version_id=version.id)
+                existed = pg_store.delete_document(session, version.id, file_name)
+                if not existed:
+                    pg_store.finish_task(session, task.id, succeeded=False, message="document not found")
+                    raise DocumentNotFoundError(f"文档不在索引中: {file_name}")
+                moved = False
+                if source_path.is_file():
+                    destination = trash_dir / file_name
+                    source_path.replace(destination)  # atomic same-volume move
+                    moved = True
+                pg_store.finish_task(session, task.id, succeeded=True, message=f"deleted {file_name}")
+                stats = pg_store.version_stats(session, version.id)
+
+            return {
+                "file_name": file_name,
+                "deleted_from_index": existed,
+                "source_moved_to_trash": moved,
+                "trash_path": str(trash_dir / file_name) if moved else "",
+                "total_stats": stats,
+            }
+
+    def retry_document(self, file_name: str) -> dict[str, Any]:
+        """Re-index a document that previously failed (or needs a refresh).
+        Requires the source file to exist."""
+        source_path = self.processor.data_dir / file_name
+        if not source_path.is_file():
+            raise DocumentNotFoundError(f"源文件不存在，无法重试: {file_name}")
+        return self.add_or_update_file(source_path, replace_existing=True)
 
     # ------------------------------------------------------------------
     # Full build (blue-green)
