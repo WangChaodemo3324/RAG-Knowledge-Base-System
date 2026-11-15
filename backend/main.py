@@ -3,7 +3,7 @@ from __future__ import annotations
 import time
 import uuid
 from pathlib import Path
-from typing import Any, List
+from typing import Any
 
 from fastapi import Depends, FastAPI, File, HTTPException, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
@@ -159,7 +159,7 @@ def health() -> dict[str, Any]:
 
 
 @app.post("/documents/upload-batch", dependencies=[Depends(require_admin)])
-async def upload_documents_batch(files: List[UploadFile] = File(..., description="批量上传 .pdf/.md/.txt 文档")) -> dict[str, Any]:
+async def upload_documents_batch(files: list[UploadFile] = File(..., description="批量上传 .pdf/.md/.txt 文档")) -> dict[str, Any]:
     """Batch upload: each file is saved and indexed independently; per-file
     failures (bad extension, parse error, size limit) never abort the batch."""
     service = get_rag_service()
