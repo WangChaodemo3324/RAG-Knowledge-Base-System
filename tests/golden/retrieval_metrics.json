@@ -1,26 +1,46 @@
 {
-  "vector": {
-    "hit_rate": 1.0,
-    "mrr": 0.9615,
-    "ndcg5": 0.9589,
-    "mean_ms": 505.61538461538464
+  "summary": {
+    "vector": {
+      "hit_rate": 0.75,
+      "mrr": 0.8704,
+      "ndcg5": 0.6646,
+      "mean_ms": 251
+    },
+    "keyword": {
+      "hit_rate": 0.5833,
+      "mrr": 0.75,
+      "ndcg5": 0.4652,
+      "mean_ms": 73.58333333333333
+    },
+    "hybrid": {
+      "hit_rate": 0.75,
+      "mrr": 0.8214,
+      "ndcg5": 0.6289,
+      "mean_ms": 57.583333333333336
+    },
+    "rerank": {
+      "hit_rate": 0.75,
+      "mrr": 0.8519,
+      "ndcg5": 0.6641,
+      "mean_ms": 2630.3333333333335
+    }
   },
-  "keyword": {
-    "hit_rate": 1.0,
-    "mrr": 0.7333,
-    "ndcg5": 0.8127,
-    "mean_ms": 127.3076923076923
-  },
-  "hybrid": {
-    "hit_rate": 1.0,
-    "mrr": 0.9615,
-    "ndcg5": 0.9312,
-    "mean_ms": 325.7692307692308
-  },
-  "rerank": {
-    "hit_rate": 1.0,
-    "mrr": 0.9615,
-    "ndcg5": 0.963,
-    "mean_ms": 9441.23076923077
+  "categories": {
+    "多文档": {
+      "hits": 2,
+      "total": 2
+    },
+    "无答案": {
+      "correct_rejects": 0,
+      "total": 3
+    },
+    "精确": {
+      "hits": 4,
+      "total": 4
+    },
+    "跨段落": {
+      "hits": 3,
+      "total": 3
+    }
   }
 }
