@@ -30,7 +30,7 @@ jobs:
           pip install -q fastapi==0.136.3 sqlalchemy==2.0.44 alembic==1.16.5 "pgvector==0.4.1" "psycopg[binary]==3.2.10" \
             jieba==0.42.1 rank-bm25==0.2.2 pytest==8.4.2 pytest-timeout==2.4.0 ruff==0.17.5 \
             "langchain-core==0.3.83" "langchain-community==0.3.31" "langchain-openai==0.3.35" "langchain-text-splitters==0.3.11" \
-            transformers==4.57.6 httpx==0.28.1 python-multipart==0.0.29 pypdf==6.12.2 openai==2.16.0
+            transformers==4.57.6 onnxruntime==1.23.2 httpx==0.28.1 python-multipart==0.0.29 pypdf==6.12.2 openai==2.16.0
       - run: pytest tests/unit -q
 
   integration-tests:
@@ -71,6 +71,8 @@ jobs:
         env:
           RAG_DATABASE_URL: postgresql+psycopg://rag:rag_ci@127.0.0.1:5433/rag
           RAG_ADMIN_API_KEY: test-admin-key-2026
+          # Mock LLM 边界：key 只需存在（不实际调用），供 _ensure_api_key 通过
+          DEEPSEEK_API_KEY: dummy-key-for-ci
           # CI 机无 BGE-M3 缓存：向量阶段由测试内 fake embedding 覆盖，
           # 依赖真实模型的评测脚本不在 CI 内执行（本地/手动运行）
           HF_HUB_OFFLINE: "0"
