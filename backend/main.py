@@ -13,6 +13,9 @@ from fastapi.staticfiles import StaticFiles
 from sqlalchemy import text
 
 from backend.core.auth import require_admin
+from backend.core import metrics as app_metrics
+from backend.core.config import CORS_ORIGINS
+from backend.core.rate_limit import check_rate_limit
 from backend.core.logging import configure_logging, get_logger, request_id_var
 from backend.db import engine
 from backend.indexing.index_pipeline import DocumentNotFoundError
@@ -34,11 +37,23 @@ WEB_STANDALONE_INDEX = WEB_DIR / "index.html"
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
+    # unset RAG_CORS_ORIGINS keeps the local-dev wildcard (credentials disabled);
+    # production must set an explicit origin allowlist
+    allow_origins=CORS_ORIGINS or ["*"],
     allow_credentials=False,
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+_ADMIN_PATHS = {
+    "/documents/upload",
+    "/knowledge-base/rebuild",
+    "/index/prune",
+    "/memory/clear",
+}
+_RATE_EXEMPT = {"/health", "/metrics", "/docs", "/openapi.json", "/", "/web", "/info"}
+# static prefixes are exempt too
+_RATE_EXEMPT_PREFIXES = ("/src/", "/web-src/")
 
 
 @app.middleware("http")
@@ -46,12 +61,23 @@ async def request_context_middleware(request, call_next):
     request_id = request.headers.get("X-Request-ID") or uuid.uuid4().hex[:12]
     request_id_var.set(request_id)
     started = time.perf_counter()
+
+    path = request.url.path
+    if request.method in {"POST", "DELETE", "PUT"} and path not in _RATE_EXEMPT and not any(
+        path.startswith(prefix) for prefix in _RATE_EXEMPT_PREFIXES
+    ):
+        try:
+            check_rate_limit(request, bucket="admin" if path in _ADMIN_PATHS else "general")
+        except HTTPException as exc:
+            return JSONResponse(status_code=exc.status_code, content={"detail": exc.detail}, headers=exc.headers)
+
     try:
         response = await call_next(request)
     except Exception:
         logger.exception("unhandled exception", extra={"event": "unhandled"})
         return JSONResponse(status_code=500, content={"detail": "服务器内部错误，请查看服务端日志"})
     duration_ms = int((time.perf_counter() - started) * 1000)
+    app_metrics.observe_request(path, response.status_code, duration_ms)
     response.headers["X-Request-ID"] = request_id
     logger.info(
         "%s %s -> %s %sms",
@@ -183,6 +209,15 @@ def prune_index_versions() -> dict[str, Any]:
     except Exception as exc:
         logger.exception("prune failed")
         raise HTTPException(status_code=500, detail="清理历史版本失败") from exc
+
+
+@app.get("/metrics")
+def metrics() -> dict[str, Any]:
+    snapshot = app_metrics.snapshot()
+    tasks = app_metrics.index_task_stats()
+    if tasks:
+        snapshot["index_tasks"] = tasks
+    return snapshot
 
 
 @app.get("/index/versions")

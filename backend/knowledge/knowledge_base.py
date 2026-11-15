@@ -1,8 +1,10 @@
 from __future__ import annotations
 
+import time
 from pathlib import Path
 from typing import Any
 
+from backend.core import metrics
 from backend.core.config import DATA_DIR
 from backend.db import session_scope
 from backend.indexing import pg_store
@@ -45,10 +47,15 @@ class KnowledgeBase:
         return [doc_to_source(item, i + 1) for i, item in enumerate(expanded)]
 
     def search_children(self, query: str, top_k: int = 10, file_name: str = "") -> list[dict[str, Any]]:
+        started = time.perf_counter()
         query_embedding = get_embedding().embed_query(query)
+        metrics.record_stage("embedding_ms", (time.perf_counter() - started) * 1000)
+        started = time.perf_counter()
         with session_scope() as session:
             version = pg_store.require_active_version(session)
-            return pg_store.search_children(session, version.id, query_embedding, top_k=top_k, file_name=file_name)
+            results = pg_store.search_children(session, version.id, query_embedding, top_k=top_k, file_name=file_name)
+        metrics.record_stage("vector_search_ms", (time.perf_counter() - started) * 1000)
+        return results
 
     def expand_child_candidates(self, candidates: list[dict[str, Any]], top_k: int = 4) -> list[dict[str, Any]]:
         with session_scope() as session:

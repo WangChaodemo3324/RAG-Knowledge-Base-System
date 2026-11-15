@@ -2,6 +2,9 @@ from __future__ import annotations
 
 from typing import Any
 
+import time
+
+from backend.core import metrics
 from backend.core.config import RERANK_MAX_LENGTH, RERANK_MODEL_NAME
 
 
@@ -21,7 +24,9 @@ class RerankService:
 
         model = self._model()
         pairs = [[query, str(candidate.get("content") or "")[:1200]] for candidate in valid_candidates]
+        started = time.perf_counter()
         scores = model.predict(pairs)
+        metrics.record_stage("rerank_ms", (time.perf_counter() - started) * 1000)
 
         results: list[dict[str, Any]] = []
         for candidate, score in zip(valid_candidates, scores):

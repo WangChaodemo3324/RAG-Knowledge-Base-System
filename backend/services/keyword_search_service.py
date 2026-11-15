@@ -43,6 +43,7 @@ class KeywordSearchService:
             if not tokenized_query:
                 return []
 
+            stage_started = time.perf_counter()
             scores = self.bm25.get_scores(tokenized_query)
             ranked_indices = sorted(range(len(scores)), key=lambda i: scores[i], reverse=True)
 
@@ -72,6 +73,9 @@ class KeywordSearchService:
                 )
                 if len(results) >= top_k:
                     break
+            from backend.core import metrics
+
+            metrics.record_stage("bm25_ms", (time.perf_counter() - stage_started) * 1000)
             return results
 
     def ensure_loaded(self) -> None:

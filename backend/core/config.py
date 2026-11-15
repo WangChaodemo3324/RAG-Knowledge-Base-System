@@ -31,6 +31,8 @@ DB_POOL_SIZE = int(os.getenv("RAG_DB_POOL_SIZE", "5"))
 DB_MAX_OVERFLOW = int(os.getenv("RAG_DB_MAX_OVERFLOW", "5"))
 DB_POOL_RECYCLE_SECONDS = int(os.getenv("RAG_DB_POOL_RECYCLE_SECONDS", "1800"))
 ADMIN_API_KEY = os.getenv("RAG_ADMIN_API_KEY", "").strip()
+# comma-separated origin allowlist; unset keeps the local-dev wildcard
+CORS_ORIGINS = [origin.strip() for origin in os.getenv("RAG_CORS_ORIGINS", "").split(",") if origin.strip()]
 SUPPORTED_DOCUMENT_EXTENSIONS = {".pdf", ".md", ".txt"}
 FALLBACK_DATA_FILE = BASE_DIR / "resource data" / "生产环境发布与回滚操作规范.md"
 CHUNK_SIZE = int(os.getenv("RAG_CHUNK_SIZE", "700"))
