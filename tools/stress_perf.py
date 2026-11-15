@@ -44,9 +44,8 @@ def concurrent_retrieval() -> dict:
             latencies.append(time.perf_counter() - started)
             return ok
 
-    with httpx.Client() as client:
-        with concurrent.futures.ThreadPoolExecutor(max_workers=8) as pool:
-            results = list(pool.map(lambda _: one(client), range(20)))
+    with httpx.Client() as client, concurrent.futures.ThreadPoolExecutor(max_workers=8) as pool:
+        results = list(pool.map(lambda _: one(client), range(20)))
     errors = sum(1 for ok in results if not ok)
     return {
         "requests": 20,

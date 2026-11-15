@@ -1,0 +1,31 @@
+name: docker-build
+
+on:
+  pull_request:
+    paths: ["Dockerfile", "docker-compose*.yml", "requirements*.txt", ".github/workflows/docker-build.yml"]
+  push:
+    branches: [main]
+    tags: ["v*"]
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+      - uses: docker/setup-buildx-action@v3
+      - name: Build image (no push)
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          push: false
+          tags: rag-knowledge-base:ci-${{ github.sha }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+      - name: Smoke — image contains app entrypoints
+        run: |
+          docker create --name smoke rag-knowledge-base:ci-${{ github.sha }} true
+          docker export smoke | tar -tf - | grep -q "app/api.py"
+          docker export smoke | tar -tf - | grep -q "app/backend/main.py"
+          docker rm smoke

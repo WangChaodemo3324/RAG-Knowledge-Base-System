@@ -77,8 +77,8 @@ def index_task_stats() -> dict[str, int] | None:
     try:
         from sqlalchemy import func, select
 
-        from backend.db.models import IndexTask
         from backend.db import engine
+        from backend.db.models import IndexTask
 
         with engine.connect() as connection:
             rows = connection.execute(

@@ -1,0 +1,75 @@
+name: backend-ci
+
+on:
+  pull_request:
+    paths: ["backend/**", "tests/**", "tools/**", "requirements*.txt", "ruff.toml", "pytest.ini", "alembic.ini", "migrations/**", ".github/workflows/backend-ci.yml"]
+  push:
+    branches: [main]
+    paths: ["backend/**", "tests/**", "tools/**", "requirements*.txt", "ruff.toml", "pytest.ini", "alembic.ini", "migrations/**", ".github/workflows/backend-ci.yml"]
+
+jobs:
+  lint:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.10"
+      - run: pip install ruff==0.13.0
+      - run: ruff check backend tools
+
+  unit-tests:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.10"
+      - name: Install test deps (no torch — unit tests mock model boundaries)
+        run: |
+          pip install -q fastapi==0.136.3 sqlalchemy==2.0.44 alembic==1.16.5 "pgvector==0.4.1" "psycopg[binary]==3.2.10" \
+            jieba==0.42.1 rank-bm25==0.2.2 pytest==8.4.2 pytest-timeout==2.4.0 ruff==0.13.0 \
+            "langchain-core==0.3.83" "langchain-community==0.3.31" "langchain-openai==0.3.35" "langchain-text-splitters==0.3.11" \
+            transformers==4.57.6 httpx==0.28.1 python-multipart==0.0.29 pypdf==6.12.2 openai==2.16.0
+      - run: pytest tests/unit -q
+
+  integration-tests:
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: pgvector/pgvector:pg16
+        env:
+          POSTGRES_USER: rag
+          POSTGRES_PASSWORD: rag_ci
+          POSTGRES_DB: rag
+        ports: ["5433:5432"]
+        options: >-
+          --health-cmd "pg_isready -U rag"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 12
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.10"
+      - name: Install deps (torch CPU via pytorch index)
+        run: |
+          pip install -q torch==2.8.0 --index-url https://download.pytorch.org/whl/cpu
+          pip install -q -r requirements.txt -r requirements-dev.txt
+        env:
+          PIP_NO_CACHE_DIR: "1"
+      - name: Migration sanity (upgrade → downgrade base → upgrade)
+        run: |
+          alembic upgrade head
+          alembic downgrade base
+          alembic upgrade head
+        env:
+          RAG_DATABASE_URL: postgresql+psycopg://rag:rag_ci@127.0.0.1:5433/rag
+      - name: Integration tests (isolated throwaway databases)
+        run: pytest tests/integration -q -m integration
+        env:
+          RAG_DATABASE_URL: postgresql+psycopg://rag:rag_ci@127.0.0.1:5433/rag
+          # CI 机无 BGE-M3 缓存：向量阶段由测试内 fake embedding 覆盖，
+          # 依赖真实模型的评测脚本不在 CI 内执行（本地/手动运行）
+          HF_HUB_OFFLINE: "0"

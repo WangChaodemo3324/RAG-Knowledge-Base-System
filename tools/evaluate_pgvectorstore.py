@@ -90,7 +90,7 @@ async def main() -> None:
             await store.add_texts(texts=["txn probe"], metadatas=[{"v": "txn"}], ids=["txn1"], session=session)
             session.rollback()
         rejected = "ACCEPTED"
-    except Exception as exc:  # noqa: BLE001
+    except Exception as exc:
         rejected = f"REJECTED ({type(exc).__name__}: {str(exc)[:120]})"
     print(f"[4] caller-managed transaction via add_texts(session=...): {rejected}")
     print("    (note: add_texts signature has no session parameter; async calls inside a sync Session raise anyway)")

@@ -7,7 +7,11 @@ from typing import Any
 
 from langchain_community.document_loaders import PyPDFLoader, TextLoader
 
-from backend.core.config import DATA_DIR, FALLBACK_DATA_FILE, SUPPORTED_DOCUMENT_EXTENSIONS
+from backend.core.config import (
+    DATA_DIR,
+    FALLBACK_DATA_FILE,
+    SUPPORTED_DOCUMENT_EXTENSIONS,
+)
 from backend.indexing.chunking import ParentChildChunker, ParentChildChunks
 
 

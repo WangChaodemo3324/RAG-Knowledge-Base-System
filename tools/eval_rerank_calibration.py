@@ -22,12 +22,7 @@ from pathlib import Path
 PROJECT_ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(PROJECT_ROOT))
 
-from backend.services.hybrid_search_service import HybridSearchService
-from backend.services.keyword_search_service import KeywordSearchService
-from backend.services.memory_store import ShortTermMemory
-from backend.services.qa_service import QAService
 from backend.services.rag_service import RagService
-from backend.services.rerank_service import RerankService
 
 POSITIVES = [
     ("生产环境发布失败后如何回滚？", "生产环境发布与回滚操作规范"),

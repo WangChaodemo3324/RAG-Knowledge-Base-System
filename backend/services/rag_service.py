@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import contextlib
 import threading
 from functools import lru_cache
 from pathlib import Path
@@ -48,10 +49,8 @@ class RagService:
         threading.Thread(target=self._warmup_rerank, name="rerank-warmup", daemon=True).start()
 
     def _warmup_rerank(self) -> None:
-        try:
+        with contextlib.suppress(Exception):  # warmup must never break startup
             self.rerank_service._model()
-        except Exception:  # noqa: BLE001 — warmup must never break startup
-            pass
 
     # ------------------------------------------------------------------
     # Retrieval

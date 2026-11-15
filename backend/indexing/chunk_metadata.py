@@ -4,7 +4,6 @@ import hashlib
 from pathlib import Path
 from typing import Any
 
-
 METADATA_SCHEMA_VERSION = 5
 
 

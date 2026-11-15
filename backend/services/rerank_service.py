@@ -1,8 +1,7 @@
 from __future__ import annotations
 
-from typing import Any
-
 import time
+from typing import Any
 
 from backend.core import metrics
 from backend.core.config import RERANK_MAX_LENGTH, RERANK_MODEL_NAME

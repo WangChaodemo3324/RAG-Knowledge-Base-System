@@ -12,20 +12,16 @@ with one versioned, transactional source of truth:
 from __future__ import annotations
 
 import uuid
+from collections.abc import Sequence
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Any, Sequence
+from typing import Any
 
 from sqlalchemy import delete, func, select, update
 from sqlalchemy.orm import Session
 
 from backend.db.models import (
-    ChildChunk,
-    DocumentRecord,
     EMBEDDING_DIM,
-    IndexTask,
-    IndexVersion,
-    ParentChunk,
     TASK_FAILED,
     TASK_RUNNING,
     TASK_SUCCEEDED,
@@ -33,6 +29,11 @@ from backend.db.models import (
     VERSION_STATUS_BUILDING,
     VERSION_STATUS_FAILED,
     VERSION_STATUS_RETIRED,
+    ChildChunk,
+    DocumentRecord,
+    IndexTask,
+    IndexVersion,
+    ParentChunk,
 )
 
 

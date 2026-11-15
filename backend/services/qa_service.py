@@ -210,7 +210,7 @@ class QAService:
             # client disconnected — record partial answer in finally, do NOT yield
             client_closed = True
             raise
-        except Exception as exc:  # noqa: BLE001 — surfaced as an SSE error event
+        except Exception as exc:
             logger.warning("chat_stream generation failed: %s", exc)
             error_detail = "模型生成中断，请稍后重试"
         finally:
@@ -229,9 +229,6 @@ class QAService:
                     "memory_turns": self.memory.count(session_id),
                     "sources_count": len(sources),
                 }
-
-    def web_search_with_trace(self, query: str, top_k: int = 4) -> dict[str, Any]:
-        return self.web_search_tool.run_with_trace(query, max_results=top_k, fetch_pages=False)
 
     def web_search(self, query: str, top_k: int = 4) -> list[dict[str, Any]]:
         return self.web_search_tool.run(query, max_results=top_k, fetch_pages=False)

@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-import logging
 import time
 import uuid
 from pathlib import Path
@@ -11,19 +10,25 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse, JSONResponse, StreamingResponse
 from fastapi.staticfiles import StaticFiles
 from sqlalchemy import text
+from starlette.concurrency import run_in_threadpool as await_to_thread
 
-from backend.core.auth import require_admin
 from backend.core import metrics as app_metrics
+from backend.core.auth import require_admin
 from backend.core.config import CORS_ORIGINS
-from backend.core.rate_limit import check_rate_limit
 from backend.core.logging import configure_logging, get_logger, request_id_var
+from backend.core.rate_limit import check_rate_limit
 from backend.db import engine
 from backend.indexing.index_pipeline import DocumentNotFoundError
 from backend.indexing.pg_store import VersionError
-from backend.schemas import ChatRequest, HybridSearchRequest, MemoryClearRequest, RerankSearchRequest, SearchRequest
+from backend.schemas import (
+    ChatRequest,
+    HybridSearchRequest,
+    MemoryClearRequest,
+    RerankSearchRequest,
+    SearchRequest,
+)
 from backend.services.document_service import DocumentUploadError
 from backend.services.rag_service import get_rag_service
-from starlette.concurrency import run_in_threadpool as await_to_thread
 
 configure_logging()
 logger = get_logger(__name__)
@@ -93,7 +98,7 @@ def db_health() -> dict[str, Any]:
         with engine.connect() as connection:
             connection.execute(text("SELECT 1"))
         connected = True
-    except Exception as exc:  # noqa: BLE001
+    except Exception as exc:
         connected = False
         # exception detail goes to logs only — /health is unauthenticated and
         # must not disclose host/user/driver information
@@ -110,7 +115,7 @@ def db_health() -> dict[str, Any]:
                     select(IndexVersion.name).where(IndexVersion.is_active.is_(True))
                 ).first()
             active = row[0] if row else ""
-        except Exception:  # noqa: BLE001
+        except Exception:
             active = ""
     return {"connected": connected, "detail": "", "active_version": active}
 

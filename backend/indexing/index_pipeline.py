@@ -13,18 +13,22 @@ from __future__ import annotations
 
 import threading
 import uuid
+from collections.abc import Callable, Iterator
 from contextlib import contextmanager
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Any, Callable, Iterator
+from typing import Any
 
 from sqlalchemy.orm import Session
 
 from backend.db import session_scope
-from backend.indexing.chunk_metadata import METADATA_SCHEMA_VERSION, ChunkMetadataBuilder
+from backend.indexing import pg_store
+from backend.indexing.chunk_metadata import (
+    METADATA_SCHEMA_VERSION,
+    ChunkMetadataBuilder,
+)
 from backend.indexing.document_processor import DocumentProcessor
 from backend.indexing.embedding_provider import get_embedding
-from backend.indexing import pg_store
 
 _SCHEMA_VERSION = str(METADATA_SCHEMA_VERSION)
 
@@ -182,7 +186,7 @@ class IndexPipeline:
             for file_path in self.processor.supported_files():
                 try:
                     indexed.append(self._index_file_into_version(version_id, file_path, mode="full_rebuild", task_id=task_id))
-                except Exception as exc:  # noqa: BLE001
+                except Exception as exc:
                     failed.append({"filename": file_path.name, "error": str(exc)})
 
             with self._session() as session:

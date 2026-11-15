@@ -20,10 +20,10 @@ from pathlib import Path
 PROJECT_ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(PROJECT_ROOT))
 
-import httpx  # noqa: E402
-from fastapi.testclient import TestClient  # noqa: E402
+import httpx
+from fastapi.testclient import TestClient
 
-from backend.main import app  # noqa: E402
+from backend.main import app
 
 ENDPOINTS = {
     "vector": ("/search", 5),

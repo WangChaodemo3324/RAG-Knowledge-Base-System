@@ -7,7 +7,6 @@ from fastapi import UploadFile
 
 from backend.core.config import DATA_DIR, SUPPORTED_DOCUMENT_EXTENSIONS
 
-
 MAX_UPLOAD_SIZE = 50 * 1024 * 1024
 UPLOAD_CHUNK_SIZE = 1024 * 1024
 

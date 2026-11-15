@@ -4,7 +4,11 @@ from functools import lru_cache
 
 from langchain_core.embeddings import Embeddings
 
-from backend.core.config import EMBEDDING_MODEL_BACKEND, EMBEDDING_MODEL_NAME, LOCAL_EMBEDDING_MODEL
+from backend.core.config import (
+    EMBEDDING_MODEL_BACKEND,
+    EMBEDDING_MODEL_NAME,
+    LOCAL_EMBEDDING_MODEL,
+)
 from backend.indexing.embedding_models import BgeM3OnnxEmbeddings
 
 

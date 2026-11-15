@@ -3,7 +3,6 @@ from __future__ import annotations
 from dataclasses import asdict, dataclass, field
 from typing import Any
 
-
 KB_ONLY = "KB_ONLY"
 WEB_ONLY = "WEB_ONLY"
 KB_THEN_WEB = "KB_THEN_WEB"

@@ -41,10 +41,7 @@ def check_rate_limit(request: Request, bucket: str = "general") -> None:
     """Raise 429 when the caller exceeds its window quota. Sweep old entries
     opportunistically to bound memory."""
     global _last_sweep
-    if bucket == "admin":
-        limit = ADMIN_LIMIT
-    else:
-        limit = GENERAL_LIMIT
+    limit = ADMIN_LIMIT if bucket == "admin" else GENERAL_LIMIT
     if limit <= 0:
         return
 
