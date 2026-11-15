@@ -1,4 +1,4 @@
-import { computed, onMounted, reactive, ref } from "https://unpkg.com/vue@3.5.13/dist/vue.esm-browser.prod.js";
+import { computed, onMounted, reactive, ref } from "./vendor/vue.esm-browser.prod.js";
 
 import {
   clearMemory as clearMemoryRequest,
@@ -155,8 +155,7 @@ export default {
           const failedNames = data.results.filter((r) => r.error).map((r) => `${r.filename}：${r.error}`);
           if (failedNames.length) {
             addMessage("system", `批量上传部分失败：
-${failedNames.join("
-")}`);
+${failedNames.join("；")}`);
           } else {
             addMessage("system", `批量上传完成：${s.indexed} 个文档已入库。`);
           }
