@@ -25,7 +25,4 @@ jobs:
           cache-to: type=gha,mode=max
       - name: Smoke — image contains app entrypoints
         run: |
-          docker create --name smoke rag-knowledge-base:ci-${{ github.sha }} true
-          docker export smoke | tar -tf - | grep -q "app/api.py"
-          docker export smoke | tar -tf - | grep -q "app/backend/main.py"
-          docker rm smoke
+          docker run --rm --entrypoint sh rag-knowledge-base:ci-${{ github.sha }}             -c "test -f /app/api.py && test -f /app/backend/main.py && test -f /app/frontend/index.html && echo smoke-ok"

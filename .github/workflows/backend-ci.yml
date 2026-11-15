@@ -70,6 +70,7 @@ jobs:
         run: pytest tests/integration -q -m integration
         env:
           RAG_DATABASE_URL: postgresql+psycopg://rag:rag_ci@127.0.0.1:5433/rag
+          RAG_ADMIN_API_KEY: test-admin-key-2026
           # CI 机无 BGE-M3 缓存：向量阶段由测试内 fake embedding 覆盖，
           # 依赖真实模型的评测脚本不在 CI 内执行（本地/手动运行）
           HF_HUB_OFFLINE: "0"
