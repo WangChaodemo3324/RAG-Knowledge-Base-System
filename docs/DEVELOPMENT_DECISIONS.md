@@ -52,3 +52,9 @@
 - **数据**：正样本 min 0.462 / 负样本 max 0.082（tools/eval_rerank_calibration.py，golden 存档）
 - **决定**：0.25 双侧等边距；0.45 距正样本最低分仅 0.012 过于贴边
 - **附带**：纠正了 V1 报告"阈值形同虚设"的机制误判——实际 0.45 能拒绝负样本，问题只在余量
+
+## D-9. 认证决策：单用户定位，不引入完整用户系统（V3）
+
+- **评估**：注册/登录/JWT/RBAC 会引入密码存储、token 生命周期、会话-用户绑定与前端登录页，复杂度与当前单机演示定位不匹配
+- **决定**：保持管理端点 X-API-Key + 进程内限流；session_id 隔离局限已在 SECURITY_AUDIT 记录为多用户部署前置条件
+- **升级路径**：若需多用户，建议 FastAPI + OAuth2PasswordBearer + passwerk 哈希 + documents 表加 owner_id，工作量约 2-3 天

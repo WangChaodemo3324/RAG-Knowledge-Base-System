@@ -2,14 +2,17 @@ import { computed, onMounted, reactive, ref } from "https://unpkg.com/vue@3.5.13
 
 import {
   clearMemory as clearMemoryRequest,
+  deleteDocument as deleteDocumentRequest,
+  fetchDocuments,
   fetchInfo,
   rebuildKnowledgeBaseIndex,
   renderError,
+  retryDocument as retryDocumentRequest,
   submitRagRequest,
   submitRagStream,
   uploadDocumentFile,
-} from "./api.js?v=20261115-2";
-import SourcePanel from "./components/SourcePanel.js?v=20260607-1";
+} from "./api.js?v=20261115-4";
+import SourcePanel from "./components/SourcePanel.js?v=20261115-5";
 import TopBar from "./components/TopBar.js?v=20260604-1";
 import WorkspacePanel from "./components/WorkspacePanel.js?v=20260604-1";
 import {
@@ -47,6 +50,11 @@ export default {
     const rebuilding = ref(false);
     const uploadStatus = reactive({ text: "", kind: "" });
     const rebuildStatus = reactive({ text: "", kind: "" });
+    const documents = ref([]);
+    const documentsLoading = ref(false);
+    const documentsError = ref("");
+    const docBusyName = ref("");
+    const docStatus = reactive({ text: "", kind: "" });
     const info = reactive({
       chunkCount: "-",
       dataFiles: [],
@@ -142,7 +150,7 @@ export default {
         uploadStatus.kind = "success";
         addMessage("system", `${data.filename} 上传成功，已增量入库，现在可以参与检索问答。`);
         selectedFile.value = null;
-        await loadInfo({ resetMessage: false });
+        await Promise.all([loadDocuments(), loadInfo({ resetMessage: false })]);
       } catch (error) {
         uploadStatus.text = renderError(error);
         uploadStatus.kind = "error";
@@ -165,12 +173,65 @@ export default {
         rebuildStatus.text = `完成：${data.data_files?.length || 0} 个文件，${data.chunk_count} 个文本块`;
         rebuildStatus.kind = "success";
         addMessage("system", `知识库已全量重建：${data.data_files?.length || 0} 个文件，${data.chunk_count} 个文本块。`);
-        await loadInfo({ resetMessage: false });
+        await Promise.all([loadDocuments(), loadInfo({ resetMessage: false })]);
       } catch (error) {
         rebuildStatus.text = renderError(error);
         rebuildStatus.kind = "error";
       } finally {
         rebuilding.value = false;
+      }
+    }
+
+    async function loadDocuments() {
+      documentsLoading.value = true;
+      documentsError.value = "";
+      try {
+        const data = await fetchDocuments();
+        documents.value = data.documents || [];
+      } catch (error) {
+        documentsError.value = renderError(error);
+      } finally {
+        documentsLoading.value = false;
+      }
+    }
+
+    async function handleDeleteDocument(fileName) {
+      if (docBusyName.value) return;
+      if (!window.confirm(`确定删除文档「${fileName}」？索引数据将移除，源文件移入 .trash 目录（可恢复）。`)) return;
+      docBusyName.value = fileName;
+      docStatus.text = "";
+      try {
+        await deleteDocumentRequest(fileName);
+        docStatus.text = `${fileName} 已删除（源文件移入 .trash）`;
+        docStatus.kind = "success";
+        if (activeDocument.value === fileName) {
+          activeDocument.value = "";
+          queryMode.value = "AUTO_DOCUMENT";
+          sources.value = [];
+        }
+        await Promise.all([loadDocuments(), loadInfo({ resetMessage: false })]);
+      } catch (error) {
+        docStatus.text = renderError(error);
+        docStatus.kind = "error";
+      } finally {
+        docBusyName.value = "";
+      }
+    }
+
+    async function handleRetryDocument(fileName) {
+      if (docBusyName.value) return;
+      docBusyName.value = fileName;
+      docStatus.text = "";
+      try {
+        await retryDocumentRequest(fileName);
+        docStatus.text = `${fileName} 重试入库成功`;
+        docStatus.kind = "success";
+        await Promise.all([loadDocuments(), loadInfo({ resetMessage: false })]);
+      } catch (error) {
+        docStatus.text = renderError(error);
+        docStatus.kind = "error";
+      } finally {
+        docBusyName.value = "";
       }
     }
 
@@ -296,7 +357,10 @@ export default {
       }
     }
 
-    onMounted(loadInfo);
+    onMounted(() => {
+      loadInfo();
+      loadDocuments();
+    });
 
     return {
       mode,
@@ -314,6 +378,13 @@ export default {
       selectedFile,
       uploading,
       rebuilding,
+      documents,
+      documentsLoading,
+      documentsError,
+      docBusyName,
+      docStatus,
+      handleDeleteDocument,
+      handleRetryDocument,
       uploadStatus,
       rebuildStatus,
       selectedFileName,
@@ -369,6 +440,13 @@ export default {
 
         <SourcePanel
           :info="info"
+          :documents="documents"
+          :documents-loading="documentsLoading"
+          :documents-error="documentsError"
+          :doc-busy-name="docBusyName"
+          :doc-status="docStatus"
+          @delete-document="handleDeleteDocument"
+          @retry-document="handleRetryDocument"
           :use-memory="useMemory"
           :can-use-memory="canUseMemory"
           :context-window="contextWindow"

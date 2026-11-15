@@ -99,3 +99,30 @@ export async function rebuildKnowledgeBaseIndex() {
   }
   return data;
 }
+
+export async function fetchDocuments() {
+  const response = await fetch("/documents");
+  const data = await response.json();
+  if (!response.ok) {
+    throw new Error(data.detail || `文档列表加载失败：${response.status}`);
+  }
+  return data;
+}
+
+export async function deleteDocument(fileName) {
+  const response = await fetch(`/documents/${encodeURIComponent(fileName)}`, { method: "DELETE" });
+  const data = await response.json().catch(() => ({}));
+  if (!response.ok) {
+    throw new Error(data.detail || `删除失败：${response.status}`);
+  }
+  return data;
+}
+
+export async function retryDocument(fileName) {
+  const response = await fetch(`/documents/${encodeURIComponent(fileName)}/retry`, { method: "POST" });
+  const data = await response.json().catch(() => ({}));
+  if (!response.ok) {
+    throw new Error(data.detail || `重试失败：${response.status}`);
+  }
+  return data;
+}
