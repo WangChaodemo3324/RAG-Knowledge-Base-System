@@ -31,9 +31,7 @@ logger = get_logger(__name__)
 app = FastAPI(title="LangChain RAG API", version="2.0.0")
 PROJECT_ROOT = Path(__file__).resolve().parent.parent
 FRONTEND_DIR = PROJECT_ROOT / "frontend"
-WEB_DIR = PROJECT_ROOT / "web"
 WEB_INDEX = FRONTEND_DIR / "index.html"
-WEB_STANDALONE_INDEX = WEB_DIR / "index.html"
 
 app.add_middleware(
     CORSMiddleware,
@@ -51,9 +49,9 @@ _ADMIN_PATHS = {
     "/index/prune",
     "/memory/clear",
 }
-_RATE_EXEMPT = {"/health", "/metrics", "/docs", "/openapi.json", "/", "/web", "/info"}
+_RATE_EXEMPT = {"/health", "/metrics", "/docs", "/openapi.json", "/", "/info"}
 # static prefixes are exempt too
-_RATE_EXEMPT_PREFIXES = ("/src/", "/web-src/")
+_RATE_EXEMPT_PREFIXES = ("/src/",)
 
 
 @app.middleware("http")
@@ -118,20 +116,11 @@ def db_health() -> dict[str, Any]:
 
 
 app.mount("/src", StaticFiles(directory=FRONTEND_DIR / "src"), name="frontend-src")
-app.mount("/web-src", StaticFiles(directory=WEB_DIR / "src"), name="web-src")
 
 
 @app.get("/", include_in_schema=False)
 def root() -> FileResponse:
     response = FileResponse(WEB_INDEX)
-    response.headers["Cache-Control"] = "no-store"
-    return response
-
-
-@app.get("/web", include_in_schema=False)
-@app.get("/web/", include_in_schema=False)
-def web_root() -> FileResponse:
-    response = FileResponse(WEB_STANDALONE_INDEX)
     response.headers["Cache-Control"] = "no-store"
     return response
 
