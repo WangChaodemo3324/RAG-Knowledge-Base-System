@@ -20,7 +20,6 @@ COPY migrations ./migrations
 COPY backend ./backend
 COPY api.py .
 COPY frontend ./frontend
-COPY web ./web
 COPY scripts ./scripts
 COPY ["resource data", "./resource data"]
 
