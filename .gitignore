@@ -17,3 +17,4 @@ route_logs.jsonl
 docker-compose.local.yml
 .spike-venv/
 backups/
+resource data/.trash/
