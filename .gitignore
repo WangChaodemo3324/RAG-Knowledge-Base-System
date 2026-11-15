@@ -6,6 +6,8 @@ __pycache__/
 *.pyc
 .venv/
 .conda-py310/
+.pytest_cache/
+.ruff_cache/
 
 # 索引与运行时产物（首次启动自动重建 / 自动生成）
 chroma_db/
