@@ -13,7 +13,7 @@ import {
   submitRagStream,
   uploadDocumentFile,
 } from "./api.js?v=20261115-6";
-import SourcePanel from "./components/SourcePanel.js?v=20261115-5";
+import SourcePanel from "./components/SourcePanel.js?v=20261115-6";
 import TopBar from "./components/TopBar.js?v=20260604-1";
 import WorkspacePanel from "./components/WorkspacePanel.js?v=20260604-1";
 import {

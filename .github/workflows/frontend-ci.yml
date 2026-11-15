@@ -20,7 +20,7 @@ jobs:
           for f in frontend/src/*.js frontend/src/components/*.js; do
             node --check "$f"
           done
-      - name: Guard against broken CDN imports
+      - name: Guard — Vue must be vendored locally (no CDN dependency)
         run: |
-          grep -q "vue.esm-browser.prod.js" frontend/src/main.js
-          grep -q "unpkg.com/vue@3" frontend/src/main.js
+          test -f frontend/src/vendor/vue.esm-browser.prod.js
+          ! grep -q "unpkg.com" frontend/src/main.js
