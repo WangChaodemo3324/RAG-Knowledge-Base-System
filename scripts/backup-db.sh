@@ -18,3 +18,10 @@ if [ "$SIZE" -lt 10000 ]; then
   exit 2
 fi
 echo "[backup] latest: $FILE"
+
+# 保留策略：保留最近 RETAIN 份，删除更旧的
+RETAIN="${BACKUP_RETAIN:-7}"
+ls -1t "$OUT_DIR"/rag_backup_*.dump 2>/dev/null | tail -n +"$((RETAIN + 1))" | while read -r old; do
+  rm -f "$old"
+  echo "[backup] pruned old backup: $old"
+done
