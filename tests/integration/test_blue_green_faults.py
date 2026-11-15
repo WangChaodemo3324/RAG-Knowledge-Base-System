@@ -81,8 +81,9 @@ class TestFullBuildFaults:
         assert result["failed_files"], "pdf failure must be reported"
         assert any("PDF parse" in item["error"] for item in result["failed_files"])
         stats = _stats_for(test_db, _active_id(test_db))
-        # 6 markdown files still indexed (7 files total, pdf excluded)
-        assert stats["document_count"] == 6
+        # all non-pdf files still indexed (pdf excluded via injected failure)
+        total_files = len(pipeline.processor.supported_files())
+        assert stats["document_count"] == total_files - 1
 
     def test_embedding_failure_keeps_old_active(self, pipeline, test_db):
         pipeline.full_build(reason="v1 ok")
@@ -139,8 +140,8 @@ class TestFullBuildFaults:
         assert len(child_ids) == len(set(child_ids)), "no (version, child_id) duplicates"
         active = _active_id(test_db)
         stats = _stats_for(test_db, active)
-        # 7 source files in resource data; every build indexes all of them
-        assert stats["document_count"] == 7, f"docs={stats}, indexed={len(r2['indexed'])}"
+        # every source file in the data dir gets indexed
+        assert stats["document_count"] == len(pipeline.processor.supported_files()), f"docs={stats}, indexed={len(r2['indexed'])}"
         session = Session(bind=test_db.engine)
         versions = pg_store.list_versions(session)
         session.close()
