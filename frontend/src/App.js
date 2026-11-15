@@ -261,7 +261,8 @@ ${failedNames.join("；")}`);
         info.ready = data.has_api_key;
         info.statusKind = data.has_api_key ? "ready" : "";
         info.statusText = data.has_api_key ? "已连接" : "未配置 Key";
-        if (options.resetMessage !== false) {
+        // 问答进行中不允许覆盖对话记录（时序竞争会让回答丢失）
+        if (options.resetMessage !== false && !busy.value) {
           messages.value = [{ role: "system", text: `知识库已加载：${data.data_files?.length || 0} 个文件，${data.chunk_count} 个文本块。` }];
         }
       } catch (error) {

@@ -263,6 +263,12 @@ class RagService:
 
     def info(self) -> dict[str, Any]:
         info = self.knowledge_base.info()
+        # 前端文档切换器需要 data_files；从 active 版本的文档清单生成
+        try:
+            listing = self.list_documents()
+            info["data_files"] = [d["file_name"] for d in listing["documents"]]
+        except Exception:  # noqa: BLE001 — 数据库暂时不可用时保持旧值
+            pass
         info.update(
             {
                 "deepseek_model": self.config["model"],

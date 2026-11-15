@@ -25,5 +25,5 @@ COPY ["resource data", "./resource data"]
 
 EXPOSE 8012
 
-# single api instance: alembic upgrade is safe to run at container start
-CMD ["sh", "-c", "alembic upgrade head && uvicorn api:app --host 0.0.0.0 --port 8012"]
+# single api instance: alembic upgrade + model cache bootstrap are safe at start
+CMD ["bash", "scripts/entrypoint.sh"]

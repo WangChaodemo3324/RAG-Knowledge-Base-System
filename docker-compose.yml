@@ -35,7 +35,9 @@ services:
     environment:
       RAG_DATABASE_URL: postgresql+psycopg://${POSTGRES_USER:-rag}:${POSTGRES_PASSWORD:-rag_local_dev}@db:5432/${POSTGRES_DB:-rag}
       HF_HOME: /models/hf
-      HF_ENDPOINT: ${HF_ENDPOINT:-}
+      HF_HUB_CACHE: /app/hf-cache/hub
+      HF_ENDPOINT: ${HF_ENDPOINT:-https://huggingface.co}
+      HF_HUB_OFFLINE: ${HF_HUB_OFFLINE:-0}
       DEEPSEEK_API_KEY: ${DEEPSEEK_API_KEY:-}
       DEEPSEEK_BASE_URL: ${DEEPSEEK_BASE_URL:-https://api.deepseek.com}
       DEEPSEEK_MODEL: ${DEEPSEEK_MODEL:-deepseek-v4-flash}
@@ -43,7 +45,7 @@ services:
       RAG_ADMIN_API_KEY: ${RAG_ADMIN_API_KEY:-}
       RAG_DATA_DIR: /app/resource data
     volumes:
-      - hf_models:/models/hf
+      - hf_cache:/app/hf-cache
       - "./resource data:/app/resource data"
     ports:
       - "8012:8012"
@@ -57,4 +59,4 @@ services:
 
 volumes:
   pgdata:
-  hf_models:
+  hf_cache:
